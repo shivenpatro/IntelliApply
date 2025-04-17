@@ -1,0 +1,21 @@
+{
+  "name": "intelliapply",
+  "version": "1.0.0",
+  "description": "AI-powered job application assistant",
+  "main": "start-dev.js",
+  "scripts": {
+    "start": "node start-dev.js",
+    "backend": "cd backend && uvicorn app.main:app --reload",
+    "frontend": "cd frontend && npm run dev",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "job",
+    "application",
+    "ai",
+    "fastapi",
+    "react"
+  ],
+  "author": "",
+  "license": "ISC"
+}
