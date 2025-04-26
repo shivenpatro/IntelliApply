@@ -1,7 +1,9 @@
-from sqlalchemy import Boolean, Column, DateTime, Enum, ForeignKey, Integer, String, Text, Float
+from sqlalchemy import Boolean, Column, DateTime, Enum, ForeignKey, Integer, String, Text, Float, BigInteger
+from sqlalchemy.dialects.postgresql import UUID # Import UUID
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 import enum
+import uuid # Import uuid for default generation if needed, though Supabase handles it
 
 from app.db.database import Base
 
@@ -12,52 +14,63 @@ class JobStatus(enum.Enum):
     IGNORED = "ignored"
 
 class User(Base):
-    __tablename__ = "users"
+    __tablename__ = "users" # This table acts as a local cache/extension
 
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(Integer, primary_key=True, index=True) # Local DB ID
+    # Change supabase_id to UUID type to match Supabase auth.users.id and allow proper joins
+    supabase_id = Column(UUID(as_uuid=True), unique=True, index=True, nullable=True)
     email = Column(String, unique=True, index=True, nullable=False)
-    supabase_id = Column(String, unique=True, index=True, nullable=True)  # Store Supabase user ID
-    hashed_password = Column(String, nullable=True)  # Make nullable since we'll use Supabase for auth
+    hashed_password = Column(String, nullable=True) # Kept nullable
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
-    profile = relationship("Profile", back_populates="user", uselist=False)
-    job_matches = relationship("UserJobMatch", back_populates="user")
+    # Profile relationship links Profile.id (UUID) to User.supabase_id (UUID)
+    profile = relationship("Profile", foreign_keys="Profile.id", primaryjoin="Profile.id == User.supabase_id", back_populates="user", uselist=False)
+    # Job matches relationship links UserJobMatch.user_id (UUID) to User.supabase_id (UUID)
+    job_matches = relationship("UserJobMatch", foreign_keys="UserJobMatch.user_id", primaryjoin="UserJobMatch.user_id == User.supabase_id", back_populates="user")
+
 
 class Profile(Base):
     __tablename__ = "profiles"
 
-    id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), unique=True)
+    # ID is the Supabase User UUID and the primary key
+    id = Column(UUID(as_uuid=True), primary_key=True, index=True)
+    # user_id column removed, id serves as the link to auth.users
+
     first_name = Column(String, nullable=True)
     last_name = Column(String, nullable=True)
     resume_path = Column(String, nullable=True)
-    desired_roles = Column(String, nullable=True)  # Comma-separated list or JSON formatted string
-    desired_locations = Column(String, nullable=True)  # Comma-separated list or JSON formatted string
+    desired_roles = Column(String, nullable=True)
+    desired_locations = Column(String, nullable=True)
     min_salary = Column(Integer, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
-    user = relationship("User", back_populates="profile")
+    # Relationship back to User model (local cache)
+    user = relationship("User", back_populates="profile", foreign_keys=[id], primaryjoin="Profile.id == User.supabase_id", uselist=False)
     skills = relationship("Skill", back_populates="profile")
     experiences = relationship("Experience", back_populates="profile")
 
 class Skill(Base):
     __tablename__ = "skills"
 
-    id = Column(Integer, primary_key=True, index=True)
-    profile_id = Column(Integer, ForeignKey("profiles.id"))
+    # Use BigInteger for ID as per Supabase schema (BIGSERIAL)
+    id = Column(BigInteger, primary_key=True, index=True)
+    # profile_id links to Profile's UUID primary key
+    profile_id = Column(UUID(as_uuid=True), ForeignKey("profiles.id"))
     name = Column(String, nullable=False)
-    level = Column(String, nullable=True)  # e.g., "beginner", "intermediate", "expert"
+    level = Column(String, nullable=True)
 
     profile = relationship("Profile", back_populates="skills")
 
 class Experience(Base):
     __tablename__ = "experiences"
 
-    id = Column(Integer, primary_key=True, index=True)
-    profile_id = Column(Integer, ForeignKey("profiles.id"))
+    # Use BigInteger for ID
+    id = Column(BigInteger, primary_key=True, index=True)
+    # profile_id links to Profile's UUID primary key
+    profile_id = Column(UUID(as_uuid=True), ForeignKey("profiles.id"))
     title = Column(String, nullable=False)
     company = Column(String, nullable=False)
     location = Column(String, nullable=True)
@@ -70,13 +83,14 @@ class Experience(Base):
 class Job(Base):
     __tablename__ = "jobs"
 
-    id = Column(Integer, primary_key=True, index=True)
+    # Use BigInteger for ID
+    id = Column(BigInteger, primary_key=True, index=True)
     title = Column(String, nullable=False)
     company = Column(String, nullable=False)
     location = Column(String, nullable=True)
     description = Column(Text, nullable=True)
     url = Column(String, nullable=True)
-    source = Column(String, nullable=True)  # e.g., "linkedin", "indeed"
+    source = Column(String, nullable=True)
     posted_date = Column(DateTime, nullable=True)
     scraped_at = Column(DateTime(timezone=True), server_default=func.now())
 
@@ -85,13 +99,18 @@ class Job(Base):
 class UserJobMatch(Base):
     __tablename__ = "user_job_matches"
 
-    id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"))
-    job_id = Column(Integer, ForeignKey("jobs.id"))
-    relevance_score = Column(Float)  # 0.0 to 1.0
-    status = Column(Enum(JobStatus), default=JobStatus.PENDING)
+    # Use BigInteger for ID
+    id = Column(BigInteger, primary_key=True, index=True)
+    # user_id links to the User's Supabase UUID (via User.supabase_id)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.supabase_id"))
+    # job_id links to Job's BigInteger ID
+    job_id = Column(BigInteger, ForeignKey("jobs.id"))
+    relevance_score = Column(Float)
+    # Treat status as a plain string, relying on DB check constraint
+    status = Column(String, default='pending', nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
-    user = relationship("User", back_populates="job_matches")
+    # Relationship back to User model (local cache)
+    user = relationship("User", back_populates="job_matches", foreign_keys=[user_id], primaryjoin="UserJobMatch.user_id == User.supabase_id")
     job = relationship("Job", back_populates="user_matches")

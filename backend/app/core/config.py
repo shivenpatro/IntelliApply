@@ -1,6 +1,20 @@
 import os
 from pydantic_settings import BaseSettings
 from typing import List, Optional
+from dotenv import load_dotenv
+import pathlib
+
+# Explicitly load .env from the project root directory
+# Determine the project root directory (assuming config.py is in backend/app/core)
+project_root = pathlib.Path(__file__).parent.parent.parent.parent
+dotenv_path = project_root / ".env"
+
+if dotenv_path.is_file():
+    print(f"Loading environment variables from: {dotenv_path}")
+    load_dotenv(dotenv_path=dotenv_path)
+else:
+    print(f"Warning: .env file not found at {dotenv_path}")
+
 
 class Settings(BaseSettings):
     # Base settings

@@ -11,6 +11,8 @@ export const mockJobs = [
     url: "https://example.com/job/1",
     source: "Sample",
     posted_date: "2023-04-15",
+    scraped_at: "2023-04-17T00:00:00Z",
+    created_at: "2023-04-17T00:00:00Z",
     relevance_score: 0.92,
     status: "pending"
   },
@@ -23,6 +25,8 @@ export const mockJobs = [
     url: "https://example.com/job/2",
     source: "Sample",
     posted_date: "2023-04-14",
+    scraped_at: "2023-04-17T00:00:00Z",
+    created_at: "2023-04-17T00:00:00Z",
     relevance_score: 0.85,
     status: "pending"
   },
@@ -35,6 +39,8 @@ export const mockJobs = [
     url: "https://example.com/job/3",
     source: "Sample",
     posted_date: "2023-04-13",
+    scraped_at: "2023-04-17T00:00:00Z",
+    created_at: "2023-04-17T00:00:00Z",
     relevance_score: 0.78,
     status: "pending"
   }

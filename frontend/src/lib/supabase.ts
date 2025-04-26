@@ -31,7 +31,7 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
         signal: options?.signal || (() => {
           const controller = new AbortController();
           // Set a very long timeout (30 seconds)
-          setTimeout(() => controller.abort(), 30000);
+          setTimeout(() => controller.abort(), 60000);
           return controller.signal;
         })()
       });
@@ -145,16 +145,18 @@ export const signUp = async (email: string, password: string) => {
 
 export const signIn = async (email: string, password: string) => {
   try {
-    console.log(`Attempting to sign in user: ${email}`);
-
-    // Use retry logic for signin
-    const response = await withRetry(() => supabase.auth.signInWithPassword({
+    console.log(`Attempting to sign in user: ${email} using Supabase client...`);
+    // Use ONLY the Supabase client method for consistency and session management
+    const response = await supabase.auth.signInWithPassword({
       email,
       password,
-    }));
+    });
+
+    // Log the full response object for debugging
+    console.log('signInWithPassword response:', response);
 
     // If there's an error about email not being confirmed, try to resend confirmation
-    if (response.error && response.error.message.includes('Email not confirmed')) {
+    if (response.error && response.error.message?.includes('Email not confirmed')) {
       console.log('Email not confirmed. Sending confirmation email...');
       await resendConfirmationEmail(email);
     }
@@ -197,26 +199,7 @@ export const signOut = async () => {
   try {
     console.log('Executing signOut in supabase.ts');
 
-    // First try the direct API call
-    try {
-      const response = await fetch(`${supabaseUrl}/auth/v1/logout`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'apikey': supabaseAnonKey,
-        },
-      });
-
-      console.log('Direct logout API response:', response.status);
-    } catch (directError) {
-      console.error('Direct logout API error:', directError);
-    }
-
-    // Then use the Supabase client method
-    const result = await supabase.auth.signOut();
-    console.log('Supabase signOut result:', result);
-
-    // Clear any local storage items related to auth
+    // Clear any local storage items related to auth first
     const storageKeys = Object.keys(localStorage);
     storageKeys.forEach(key => {
       if (key.includes('supabase') || key.includes('sb-')) {
@@ -225,10 +208,43 @@ export const signOut = async () => {
       }
     });
 
-    return result;
+    // Get the current session to extract the access token
+    const { data: sessionData } = await supabase.auth.getSession();
+    const accessToken = sessionData?.session?.access_token;
+
+    // Try the Supabase client method first
+    try {
+      const result = await supabase.auth.signOut();
+      console.log('Supabase signOut result:', result);
+    } catch (clientError) {
+      console.error('Supabase client signOut error:', clientError);
+    }
+
+    // Then try the direct API call with the token if available
+    if (accessToken) {
+      try {
+        const response = await fetch(`${supabaseUrl}/auth/v1/logout`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': supabaseAnonKey,
+            'Authorization': `Bearer ${accessToken}`
+          },
+        });
+
+        console.log('Direct logout API response:', response.status);
+      } catch (directError) {
+        console.error('Direct logout API error:', directError);
+      }
+    }
+
+    // Force clear session state regardless of API success
+    // This ensures the UI updates even if the API calls fail
+    return { error: null };
   } catch (error) {
     console.error('Error in signOut:', error);
-    return { error };
+    // Return success anyway to ensure UI updates
+    return { error: null };
   }
 };
 

@@ -41,7 +41,7 @@ const ProfilePage = () => {
   const [uploading, setUploading] = useState<boolean>(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [uploadSuccess, setUploadSuccess] = useState<string | null>(null);
-  
+
   // State for preferences form
   const [preferences, setPreferences] = useState({
     desired_roles: '',
@@ -54,6 +54,7 @@ const ProfilePage = () => {
 
   // State for account info form
   const [accountInfo, setAccountInfo] = useState({
+    email: '',
     first_name: '',
     last_name: ''
   });
@@ -78,20 +79,21 @@ const ProfilePage = () => {
           // Fetch profile data from the API using our API service
           const profileData = await profileAPI.getProfile();
           setProfile(profileData);
-          
+
           // Update preferences form with fetched data
           setPreferences({
             desired_roles: profileData.desired_roles || '',
             desired_locations: profileData.desired_locations || '',
             min_salary: profileData.min_salary ? String(profileData.min_salary) : ''
           });
-          
+
           // Update account info form with fetched data
           setAccountInfo({
+            email: profileData.email || '',
             first_name: profileData.first_name || '',
             last_name: profileData.last_name || ''
           });
-          
+
           // Set initial active skills from profile
           if (profileData.skills && profileData.skills.length > 0) {
             setActiveSkills(profileData.skills);
@@ -131,20 +133,34 @@ const ProfilePage = () => {
     setUploadSuccess(null);
 
     try {
+      // Show parsing message
+      setUploadSuccess('Uploading resume...');
+
       // Upload resume using API service
       const response = await profileAPI.uploadResume(file);
+
+      // Update success message
       setUploadSuccess(response.message || 'Resume uploaded successfully!');
-      
+
       // Refresh profile data to show new resume and extracted skills/experiences
       const profileData = await profileAPI.getProfile();
       setProfile(profileData);
-      
-      // Update active skills if new ones were extracted
+
+      // Update active skills with the newly extracted skills
       if (profileData.skills && profileData.skills.length > 0) {
         setActiveSkills(profileData.skills);
+
+        // Show success message with skill count
+        setUploadSuccess(`Resume uploaded and parsed successfully! ${profileData.skills.length} skills extracted.`);
       }
-      
-      setFile(null); // Clear file input
+
+      // Clear file input
+      setFile(null);
+
+      // Reset file input element
+      const fileInput = document.getElementById('resume-upload') as HTMLInputElement;
+      if (fileInput) fileInput.value = '';
+
     } catch (err: any) {
       console.error('Error uploading resume:', err);
       setUploadError(err.response?.data?.detail || err.message || 'Failed to upload resume.');
@@ -166,19 +182,20 @@ const ProfilePage = () => {
     setSavingAccountInfo(true);
     setAccountInfoError(null);
     setAccountInfoSuccess(null);
-    
+
     try {
       const accountData = {
+        email: accountInfo.email,
         first_name: accountInfo.first_name,
         last_name: accountInfo.last_name
       };
-      
+
       // Update profile via API service
       const updatedProfile = await profileAPI.updatePreferences(accountData);
-      
+
       // Update profile with new data
       setProfile(prev => prev ? {...prev, ...updatedProfile} : null);
-      setAccountInfoSuccess('Name updated successfully!');
+      setAccountInfoSuccess('Account information updated successfully!');
     } catch (err: any) {
       console.error('Error updating account info:', err);
       setAccountInfoError(err.response?.data?.detail || err.message || 'Failed to update account information.');
@@ -194,23 +211,23 @@ const ProfilePage = () => {
       [name]: value
     }));
   };
-  
+
   const handlePreferencesSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSavingPreferences(true);
     setPreferencesError(null);
     setPreferencesSuccess(null);
-    
+
     try {
       const preferencesData = {
         desired_roles: preferences.desired_roles,
         desired_locations: preferences.desired_locations,
         min_salary: preferences.min_salary ? parseInt(preferences.min_salary) : undefined
       };
-      
+
       // Update preferences via API service
       const updatedProfile = await profileAPI.updatePreferences(preferencesData);
-      
+
       // Update profile with new data
       setProfile(prev => prev ? {...prev, ...updatedProfile} : null);
       setPreferencesSuccess('Preferences updated successfully!');
@@ -226,16 +243,16 @@ const ProfilePage = () => {
   const handleAddSkill = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newSkill.trim()) return;
-    
+
     setAddingSkill(true);
     setSkillError(null);
     setSkillSuccess(null);
-    
+
     try {
       // Add the skill via API
       const newSkillData = [{ name: newSkill.trim(), level: skillLevel }];
       const addedSkills = await profileAPI.addSkills(newSkillData);
-      
+
       // Update skills list
       setActiveSkills(prev => [...prev, ...addedSkills]);
       setSkillSuccess(`"${newSkill}" added successfully!`);
@@ -247,7 +264,7 @@ const ProfilePage = () => {
       setAddingSkill(false);
     }
   };
-  
+
   // Handle removing a skill
   const handleRemoveSkill = async (skillId: number) => {
     try {
@@ -258,7 +275,7 @@ const ProfilePage = () => {
       setSkillError('Failed to remove skill. Please try again.');
     }
   };
-  
+
   if (authLoading || loading) {
     return <div className="text-center py-10">Loading profile...</div>;
   }
@@ -270,7 +287,7 @@ const ProfilePage = () => {
   if (!profile) {
      return <div className="text-center py-10">Profile data not available.</div>;
   }
-  
+
   return (
     <div className="max-w-4xl mx-auto py-6 sm:px-6 lg:px-8">
       <h1 className="text-3xl font-bold text-gray-900 mb-6">Your Profile</h1>
@@ -281,7 +298,7 @@ const ProfilePage = () => {
           <h3 className="text-lg leading-6 font-medium text-gray-900">Account Information</h3>
           <p className="mt-1 max-w-2xl text-sm text-gray-500">Your basic account information.</p>
         </div>
-        
+
         <div className="border-t border-gray-200 px-4 py-5 sm:p-0">
           <form onSubmit={handleAccountInfoSubmit}>
             {accountInfoError && (
@@ -295,28 +312,29 @@ const ProfilePage = () => {
               </div>
             )}
             <dl className="sm:divide-y sm:divide-gray-200">
-              {/* Email - Read Only */}
+              {/* Email */}
               <div className="py-4 sm:py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
                 <dt className="text-sm font-medium text-gray-500">Email address</dt>
                 <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
-                  {/* Display email from authentication context */}
-                  <input 
-                    type="email" 
-                    value={profile?.email || ''}
-                    readOnly
-                    disabled
-                    className="shadow-sm block w-full sm:text-sm border-gray-300 bg-gray-100 rounded-md"
+                  <input
+                    type="email"
+                    name="email"
+                    id="email"
+                    placeholder="Enter your email address"
+                    value={accountInfo.email}
+                    onChange={handleAccountInfoChange}
+                    className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md"
                   />
-                  <p className="mt-1 text-xs text-gray-500">Email address cannot be changed</p>
+                  <p className="mt-1 text-xs text-gray-500">This email will be used for all communications</p>
                 </dd>
               </div>
-              
+
               {/* First Name */}
               <div className="py-4 sm:py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
                 <dt className="text-sm font-medium text-gray-500">First Name</dt>
                 <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
-                  <input 
-                    type="text" 
+                  <input
+                    type="text"
                     name="first_name"
                     id="first_name"
                     placeholder="Enter your first name"
@@ -326,12 +344,12 @@ const ProfilePage = () => {
                   />
                 </dd>
               </div>
-              
+
               {/* Last Name */}
               <div className="py-4 sm:py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
                 <dt className="text-sm font-medium text-gray-500">Last Name</dt>
                 <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
-                  <input 
+                  <input
                     type="text"
                     name="last_name"
                     id="last_name"
@@ -342,7 +360,7 @@ const ProfilePage = () => {
                   />
                 </dd>
               </div>
-              
+
               {/* Resume Path - Read Only */}
               <div className="py-4 sm:py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
                 <dt className="text-sm font-medium text-gray-500">Current Resume</dt>
@@ -350,7 +368,7 @@ const ProfilePage = () => {
                   {profile.resume_path ? profile.resume_path.split('/').pop() : 'No resume uploaded yet.'}
                 </dd>
               </div>
-              
+
               {/* Save Button */}
               <div className="py-4 sm:py-5 sm:px-6">
                 <button
@@ -358,7 +376,7 @@ const ProfilePage = () => {
                   disabled={savingAccountInfo}
                   className="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
                 >
-                  {savingAccountInfo ? 'Saving...' : 'Update Name'}
+                  {savingAccountInfo ? 'Saving...' : 'Update Account Info'}
                 </button>
               </div>
             </dl>
@@ -371,7 +389,7 @@ const ProfilePage = () => {
         <div className="px-4 py-5 sm:p-6">
           <h3 className="text-lg leading-6 font-medium text-gray-900">Upload Resume</h3>
           <p className="mt-1 max-w-2xl text-sm text-gray-500">
-            Upload your latest resume (PDF or DOCX). This will be used to match you with relevant jobs.
+            Upload your latest resume (PDF or DOCX). Our AI will automatically extract your skills and experiences.
           </p>
           <form className="mt-5 space-y-4" onSubmit={handleUpload}>
              {uploadError && (
@@ -389,27 +407,55 @@ const ProfilePage = () => {
                 Resume file
               </label>
               <div className="mt-1 flex items-center">
-                 <input 
+                 <input
                     id="resume-upload"
                     name="resume-upload"
-                    type="file" 
-                    onChange={handleFileChange} 
+                    type="file"
+                    onChange={handleFileChange}
                     accept=".pdf,.doc,.docx"
                     className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                    disabled={uploading}
                  />
               </div>
                {file && <p className="text-sm text-gray-500 mt-1">Selected: {file.name}</p>}
+               {profile.resume_path && !uploading && (
+                <p className="text-sm text-blue-600 mt-1">
+                  Current resume: {profile.resume_path.split('/').pop()}
+                </p>
+               )}
             </div>
 
-            <div>
+            <div className="flex items-center">
               <button
                 type="submit"
                 disabled={!file || uploading}
                 className="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
               >
-                {uploading ? 'Uploading...' : 'Upload Resume'}
+                {uploading ? (
+                  <>
+                    <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Processing Resume...
+                  </>
+                ) : (
+                  'Upload & Parse Resume'
+                )}
               </button>
+
+              {profile.skills.length > 0 && !uploading && (
+                <span className="ml-3 text-sm text-gray-500">
+                  {profile.skills.length} skills detected
+                </span>
+              )}
             </div>
+
+            {uploading && (
+              <div className="text-sm text-gray-500">
+                <p>Our AI is analyzing your resume and extracting your skills and experiences...</p>
+              </div>
+            )}
           </form>
         </div>
       </div>
@@ -422,7 +468,7 @@ const ProfilePage = () => {
           <p className="mt-1 max-w-2xl text-sm text-gray-500">
             Add your professional skills to help us find better job matches. Your resume skills will be automatically added when uploaded.
           </p>
-          
+
           {skillError && (
             <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mt-4" role="alert">
               <span className="block sm:inline">{skillError}</span>
@@ -433,7 +479,7 @@ const ProfilePage = () => {
               <span className="block sm:inline">{skillSuccess}</span>
             </div>
           )}
-          
+
           {/* Add Skill Form */}
           <form className="mt-5 flex" onSubmit={handleAddSkill}>
             <div className="flex-grow mr-2">
@@ -465,7 +511,7 @@ const ProfilePage = () => {
               {addingSkill ? 'Adding...' : 'Add Skill'}
             </button>
           </form>
-          
+
           {/* Skills List */}
           <div className="mt-6">
             <h4 className="text-sm font-medium text-gray-500">Your Skills</h4>
@@ -498,13 +544,13 @@ const ProfilePage = () => {
           </div>
         </div>
       </div>
-      
+
       {/* Job Preferences Section */}
       <div className="bg-white shadow sm:rounded-lg mt-6">
         <div className="px-4 py-5 sm:p-6">
           <h3 className="text-lg leading-6 font-medium text-gray-900">Job Preferences</h3>
           <p className="mt-1 max-w-2xl text-sm text-gray-500">Set your preferences for job roles, locations, and minimum salary.</p>
-          
+
           <form className="mt-5 space-y-4" onSubmit={handlePreferencesSubmit}>
             {preferencesError && (
               <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
@@ -516,7 +562,7 @@ const ProfilePage = () => {
                 <span className="block sm:inline">{preferencesSuccess}</span>
               </div>
             )}
-            
+
             <div>
               <label htmlFor="desired_roles" className="block text-sm font-medium text-gray-700">
                 Desired Roles (comma separated)
@@ -534,7 +580,7 @@ const ProfilePage = () => {
               </div>
               <p className="mt-1 text-sm text-gray-500">List roles you're interested in, separated by commas.</p>
             </div>
-            
+
             <div>
               <label htmlFor="desired_locations" className="block text-sm font-medium text-gray-700">
                 Desired Locations (comma separated)
@@ -552,7 +598,7 @@ const ProfilePage = () => {
               </div>
               <p className="mt-1 text-sm text-gray-500">List locations you're interested in, separated by commas.</p>
             </div>
-            
+
             <div>
               <label htmlFor="min_salary" className="block text-sm font-medium text-gray-700">
                 Minimum Annual Salary
@@ -570,7 +616,7 @@ const ProfilePage = () => {
               </div>
               <p className="mt-1 text-sm text-gray-500">Enter your minimum acceptable annual salary in USD.</p>
             </div>
-            
+
             <div>
               <button
                 type="submit"
