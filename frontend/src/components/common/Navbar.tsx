@@ -56,13 +56,19 @@ const Navbar = () => {
                 onClick={(e) => {
                   e.preventDefault();
                   console.log('Logout button clicked');
-                  // Force redirect to home page after logout
-                  logout().finally(() => {
-                    console.log('Forcing redirect after logout');
-                    setTimeout(() => {
-                      window.location.href = '/';
-                    }, 500);
+                  // Clear local storage immediately
+                  const storageKeys = Object.keys(localStorage);
+                  storageKeys.forEach(key => {
+                    if (key.includes('supabase') || key.includes('sb-')) {
+                      localStorage.removeItem(key);
+                    }
                   });
+                  // Call logout and force redirect
+                  logout();
+                  // Force redirect regardless of logout success
+                  setTimeout(() => {
+                    window.location.href = '/';
+                  }, 100);
                 }}
                 className="ml-4 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-indigo-700 bg-white hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-white transition-colors duration-200"
               >
@@ -154,13 +160,19 @@ const Navbar = () => {
                   e.preventDefault();
                   console.log('Mobile logout button clicked');
                   setMobileMenuOpen(false);
-                  // Force redirect to home page after logout
-                  logout().finally(() => {
-                    console.log('Forcing redirect after mobile logout');
-                    setTimeout(() => {
-                      window.location.href = '/';
-                    }, 500);
+                  // Clear local storage immediately
+                  const storageKeys = Object.keys(localStorage);
+                  storageKeys.forEach(key => {
+                    if (key.includes('supabase') || key.includes('sb-')) {
+                      localStorage.removeItem(key);
+                    }
                   });
+                  // Call logout and force redirect
+                  logout();
+                  // Force redirect regardless of logout success
+                  setTimeout(() => {
+                    window.location.href = '/';
+                  }, 100);
                 }}
                 className="block w-full text-left pl-3 pr-4 py-2 text-base font-medium text-blue-100 hover:bg-blue-700 hover:text-white"
               >

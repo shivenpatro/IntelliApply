@@ -2,6 +2,7 @@ from pydantic import BaseModel, EmailStr, validator, Field
 from typing import List, Optional, Union
 from datetime import datetime
 from enum import Enum
+import uuid # Import uuid
 
 # Auth schemas
 class UserBase(BaseModel):
@@ -56,8 +57,8 @@ class SkillCreate(SkillBase):
     pass
 
 class Skill(SkillBase):
-    id: int
-    profile_id: int
+    id: int # Keep local skill ID as int (BIGSERIAL)
+    profile_id: uuid.UUID # Profile ID is UUID
     
     class Config:
         orm_mode = True
@@ -74,15 +75,15 @@ class ExperienceCreate(ExperienceBase):
     pass
 
 class Experience(ExperienceBase):
-    id: int
-    profile_id: int
+    id: int # Keep local experience ID as int (BIGSERIAL)
+    profile_id: uuid.UUID # Profile ID is UUID
     
     class Config:
         orm_mode = True
 
 class Profile(ProfileBase):
-    id: int
-    user_id: int
+    id: uuid.UUID # Profile ID is UUID
+    # user_id: int # Remove user_id, link is via Profile.id == User.supabase_id
     resume_path: Optional[str] = None
     skills: List[Skill] = []
     experiences: List[Experience] = []

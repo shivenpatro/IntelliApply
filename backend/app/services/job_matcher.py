@@ -62,8 +62,8 @@ async def match_jobs_for_user(user_id):
         # Create DB session
         db = SessionLocal()
         
-        # Get user profile data
-        profile = db.query(Profile).filter(Profile.user_id == user_id).first()
+        # Get user profile data using the profile's ID (which is the user's Supabase UUID)
+        profile = db.query(Profile).filter(Profile.id == user_id).first()
         if not profile:
             print(f"No profile found for user {user_id}")
             db.close()
@@ -102,11 +102,12 @@ async def match_jobs_for_user(user_id):
                 # Update existing match
                 existing_match.relevance_score = relevance_score
             else:
-                # Create new match
+                # Create new match, setting status as a plain string
                 match = UserJobMatch(
                     user_id=user_id,
                     job_id=job_id,
-                    relevance_score=relevance_score
+                    relevance_score=relevance_score,
+                    status='pending' # Set as string
                 )
                 db.add(match)
         

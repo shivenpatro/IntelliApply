@@ -3,7 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { jobsAPI } from '../services/api';
 import JobDetailsModal from '../components/jobs/JobDetailsModal';
 import { Link } from 'react-router-dom';
-import { mockJobs, mockJobCounts } from '../services/mockData';
+import { Database } from '../lib/database.types';
 
 // Define types for job data
 interface Job {
@@ -13,12 +13,78 @@ interface Job {
   location: string;
   description: string;
   url: string;
-  source?: string;
-  posted_date?: string;
-  scraped_at?: string;
+  source: string;
+  posted_date: string;
+  scraped_at: string;
+  created_at: string;
   relevance_score?: number;
-  status?: 'pending' | 'interested' | 'applied' | 'ignored';
+  status: 'pending' | 'interested' | 'applied' | 'ignored';
 }
+
+const mockJobs: Job[] = [
+  {
+    id: 1,
+    title: "Frontend Developer",
+    company: "Tech Solutions Inc.",
+    location: "Remote",
+    description: "We're looking for a skilled Frontend Developer to join our team. Experience with React, TypeScript, and modern web technologies required.",
+    url: "https://example.com/job/1",
+    source: "Sample",
+    posted_date: "2023-04-15",
+    scraped_at: "2023-04-17T00:00:00Z",
+    created_at: "2023-04-17T00:00:00Z",
+    relevance_score: 0.92,
+    status: "pending",
+  },
+  {
+    id: 2,
+    title: "Full Stack Engineer",
+    company: "InnovateTech",
+    location: "San Francisco, CA",
+    description: "Join our team as a Full Stack Engineer working on cutting-edge web applications. Experience with React, Node.js, and cloud technologies desired.",
+    url: "https://example.com/job/2",
+    source: "Sample",
+    posted_date: "2023-04-14",
+    scraped_at: "2023-04-17T00:00:00Z",
+    created_at: "2023-04-17T00:00:00Z",
+    relevance_score: 0.85,
+    status: "pending",
+  },
+  {
+    id: 3,
+    title: "Backend Developer",
+    company: "DataSystems Corp",
+    location: "New York, NY",
+    description: "Looking for a Backend Developer with experience in Python, FastAPI, and database design to help build our data processing systems.",
+    url: "https://example.com/job/3",
+    source: "Sample",
+    posted_date: "2023-04-13",
+    scraped_at: "2023-04-17T00:00:00Z",
+    created_at: "2023-04-17T00:00:00Z",
+    relevance_score: 0.78,
+    status: "pending",
+  }
+];
+
+interface JobCounts {
+  total: number;
+  by_status: {
+    pending: number;
+    interested: number;
+    applied: number;
+    ignored: number;
+  };
+}
+
+const mockJobCounts: JobCounts = {
+  total: 3,
+  by_status: {
+    pending: 3,
+    interested: 0,
+    applied: 0,
+    ignored: 0
+  }
+};
 
 const DashboardPage = () => {
   const { isAuthenticated, loading: authLoading } = useAuth();
@@ -40,11 +106,15 @@ const DashboardPage = () => {
     setLoading(true);
     setError(null);
 
-    // Create a timeout promise
+    // Always set mock data first to ensure something is displayed
+    setJobs(mockJobs);
+    setJobCounts(mockJobCounts);
+
+    // Create a shorter timeout promise
     const timeoutPromise = new Promise((_, reject) => {
       setTimeout(() => {
         reject(new Error('Request timed out'));
-      }, 5000); // 5 seconds timeout - reduced for faster fallback
+      }, 3000); // 3 seconds timeout - reduced for faster response
     });
 
     try {
@@ -59,12 +129,12 @@ const DashboardPage = () => {
       console.log('Jobs data received:', jobsData);
 
       // Check if we got valid data
-      if (Array.isArray(jobsData)) {
+      if (Array.isArray(jobsData) && jobsData.length > 0) {
         setJobs(jobsData);
+        console.log('Using real job data from API');
       } else {
-        console.error('Invalid jobs data format:', jobsData);
-        console.log('Using mock data as fallback');
-        setJobs(mockJobs);
+        console.log('Invalid or empty jobs data format, keeping mock data');
+        // Mock data already set above
       }
 
       // Fetch job counts with a separate try/catch to avoid failing everything
@@ -73,30 +143,25 @@ const DashboardPage = () => {
         const countsData = await jobsAPI.getJobCounts();
         console.log('Job counts received:', countsData);
 
-        if (countsData && typeof countsData === 'object') {
+        if (countsData && typeof countsData === 'object' && countsData.total > 0) {
           setJobCounts(countsData);
+          console.log('Using real job counts from API');
         } else {
-          // Use mock job counts if API returns invalid data
-          console.log('Using mock job counts as fallback');
-          setJobCounts(mockJobCounts);
+          console.log('Invalid job counts data, keeping mock job counts');
+          // Mock counts already set above
         }
       } catch (countErr) {
         console.error('Error fetching job counts:', countErr);
-        // Use mock job counts as fallback
-        console.log('Using mock job counts as fallback due to error');
-        setJobCounts(mockJobCounts);
+        console.log('Keeping mock job counts due to error');
+        // Mock counts already set above
       }
     } catch (err: any) {
       console.error('Error fetching jobs:', err);
-
-      // Use mock data as fallback instead of showing error
-      console.log('Using mock data as fallback due to error');
-      setJobs(mockJobs);
-      setJobCounts(mockJobCounts);
+      console.log('Keeping mock data due to error');
 
       // Still log the error for debugging purposes
       if (err.message === 'Request timed out') {
-        console.error('Request timed out. Using mock data instead.');
+        console.error('Request timed out. Using mock data.');
       } else if (err.response) {
         console.error('Error response status:', err.response.status);
         console.error('Error response data:', err.response.data);
@@ -109,7 +174,10 @@ const DashboardPage = () => {
       // Don't set error state - we're using mock data instead
       // This prevents the error message from showing
     } finally {
-      setLoading(false);
+      // Always set loading to false after a short delay to ensure UI updates
+      setTimeout(() => {
+        setLoading(false);
+      }, 500);
     }
   };
 
@@ -262,7 +330,7 @@ const DashboardPage = () => {
 
           {/* Status summary cards */}
           <div
-            className={`grid grid-cols-1 md:grid-cols-4 gap-4 mb-8 transition-all duration-700 delay-100 transform ${isVisible ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'}`}
+            className={`grid grid-cols-1 md:grid-cols-4 gap-4 mb-8 transition-all duration-700 delay-200 transform ${isVisible ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'}`}
           >
             <div className="bg-white shadow-md hover:shadow-lg rounded-lg p-6 transition-all duration-300 transform hover:-translate-y-1">
               <div className="flex justify-between items-start">

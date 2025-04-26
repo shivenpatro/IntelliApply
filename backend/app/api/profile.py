@@ -3,6 +3,10 @@ from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File,
 from sqlalchemy.orm import Session
 import shutil
 from typing import List
+import logging # Import logging
+
+# Setup logger for this module
+logger = logging.getLogger(__name__)
 
 from app.core.config import settings
 from app.core.schemas import Profile, ProfileCreate, ProfileUpdate, Skill, SkillCreate, Experience, ExperienceCreate, ResumeUploadResponse
@@ -18,14 +22,25 @@ os.makedirs(settings.UPLOAD_DIRECTORY, exist_ok=True)
 
 @router.get("", response_model=Profile)
 async def get_profile(current_user: User = Depends(get_current_active_user), db: Session = Depends(get_db)):
-    profile = db.query(ProfileModel).filter(ProfileModel.user_id == current_user.id).first()
-    if not profile:
-        raise HTTPException(status_code=404, detail="Profile not found")
-    return profile
+    try:
+        logger.info(f"Attempting to get profile for user supabase_id: {current_user.supabase_id}")
+        # Filter profile by its ID, which matches the user's supabase_id
+        profile = db.query(ProfileModel).filter(ProfileModel.id == current_user.supabase_id).first()
+        if not profile:
+            logger.warning(f"Profile not found for user supabase_id: {current_user.supabase_id}")
+            # It's possible the profile wasn't created by the trigger yet, handle this gracefully?
+            # For now, raise 404 as per original logic.
+            raise HTTPException(status_code=404, detail="Profile not found")
+        logger.info(f"Profile found for user supabase_id: {current_user.supabase_id}")
+        return profile
+    except Exception as e:
+        logger.exception(f"Unexpected error in get_profile for user {current_user.supabase_id}: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error fetching profile")
 
 @router.put("/preferences", response_model=Profile)
 async def update_preferences(profile_data: ProfileUpdate, current_user: User = Depends(get_current_active_user), db: Session = Depends(get_db)):
-    profile = db.query(ProfileModel).filter(ProfileModel.user_id == current_user.id).first()
+    # Filter profile by its ID (user's supabase_id)
+    profile = db.query(ProfileModel).filter(ProfileModel.id == current_user.supabase_id).first()
     if not profile:
         raise HTTPException(status_code=404, detail="Profile not found")
 
@@ -47,8 +62,8 @@ async def upload_resume(background_tasks: BackgroundTasks, file: UploadFile = Fi
             detail=f"File must be one of: {', '.join(settings.ALLOWED_EXTENSIONS)}"
         )
 
-    # Create user directory if it doesn't exist
-    user_upload_dir = os.path.join(settings.UPLOAD_DIRECTORY, str(current_user.id))
+    # Create user directory using their Supabase UUID for uniqueness
+    user_upload_dir = os.path.join(settings.UPLOAD_DIRECTORY, str(current_user.supabase_id))
     os.makedirs(user_upload_dir, exist_ok=True)
 
     # Save the file
@@ -57,10 +72,15 @@ async def upload_resume(background_tasks: BackgroundTasks, file: UploadFile = Fi
         shutil.copyfileobj(file.file, buffer)
 
     # Update the profile with the resume path
-    profile = db.query(ProfileModel).filter(ProfileModel.user_id == current_user.id).first()
+    # Fetch profile using supabase_id
+    profile = db.query(ProfileModel).filter(ProfileModel.id == current_user.supabase_id).first()
     if not profile:
-        profile = ProfileModel(user_id=current_user.id)
-        db.add(profile)
+        # This case should ideally be handled by the trigger or initial auth, but as a fallback:
+        # profile = ProfileModel(id=current_user.supabase_id) # Create profile if missing
+        # db.add(profile)
+        # For now, raise error if profile is missing after auth
+         raise HTTPException(status_code=404, detail="Profile not found for authenticated user")
+
 
     profile.resume_path = file_path
     db.commit()
@@ -72,7 +92,8 @@ async def upload_resume(background_tasks: BackgroundTasks, file: UploadFile = Fi
 
 @router.post("/skills", response_model=List[Skill])
 async def add_skills(skills: List[SkillCreate], current_user: User = Depends(get_current_active_user), db: Session = Depends(get_db)):
-    profile = db.query(ProfileModel).filter(ProfileModel.user_id == current_user.id).first()
+    # Fetch profile using supabase_id
+    profile = db.query(ProfileModel).filter(ProfileModel.id == current_user.supabase_id).first()
     if not profile:
         raise HTTPException(status_code=404, detail="Profile not found")
 
@@ -104,7 +125,8 @@ async def add_skills(skills: List[SkillCreate], current_user: User = Depends(get
 
 @router.delete("/skills/{skill_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_skill(skill_id: int, current_user: User = Depends(get_current_active_user), db: Session = Depends(get_db)):
-    profile = db.query(ProfileModel).filter(ProfileModel.user_id == current_user.id).first()
+    # Fetch profile using supabase_id
+    profile = db.query(ProfileModel).filter(ProfileModel.id == current_user.supabase_id).first()
     if not profile:
         raise HTTPException(status_code=404, detail="Profile not found")
 
@@ -119,7 +141,8 @@ async def delete_skill(skill_id: int, current_user: User = Depends(get_current_a
 
 @router.post("/experiences", response_model=List[Experience])
 async def add_experiences(experiences: List[ExperienceCreate], current_user: User = Depends(get_current_active_user), db: Session = Depends(get_db)):
-    profile = db.query(ProfileModel).filter(ProfileModel.user_id == current_user.id).first()
+    # Fetch profile using supabase_id
+    profile = db.query(ProfileModel).filter(ProfileModel.id == current_user.supabase_id).first()
     if not profile:
         raise HTTPException(status_code=404, detail="Profile not found")
 
@@ -138,7 +161,8 @@ async def add_experiences(experiences: List[ExperienceCreate], current_user: Use
 
 @router.delete("/experiences/{experience_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_experience(experience_id: int, current_user: User = Depends(get_current_active_user), db: Session = Depends(get_db)):
-    profile = db.query(ProfileModel).filter(ProfileModel.user_id == current_user.id).first()
+    # Fetch profile using supabase_id
+    profile = db.query(ProfileModel).filter(ProfileModel.id == current_user.supabase_id).first()
     if not profile:
         raise HTTPException(status_code=404, detail="Profile not found")
 

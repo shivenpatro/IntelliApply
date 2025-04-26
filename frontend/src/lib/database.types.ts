@@ -21,6 +21,8 @@ export interface Database {
           posted_date: string
           scraped_at: string
           created_at: string
+          relevance_score?: number
+          status: string
         }
         Insert: {
           id?: number

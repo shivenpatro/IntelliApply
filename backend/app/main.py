@@ -1,7 +1,8 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import profile, jobs
+# Import all routers
+from app.api import profile, jobs, auth
 from app.core.config import settings
 from app.db.database import engine, Base
 
@@ -24,6 +25,7 @@ app.add_middleware(
 )
 
 # Include routers
+app.include_router(auth.router, prefix='/api/auth', tags=['Authentication']) # Add auth router
 app.include_router(profile.router, prefix='/api/profile', tags=['User Profile'])
 app.include_router(jobs.router, prefix='/api/jobs', tags=['Jobs'])
 
