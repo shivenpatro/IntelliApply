@@ -1,4 +1,4 @@
-from sqlalchemy import Boolean, Column, DateTime, Enum, ForeignKey, Integer, String, Text, Float, BigInteger
+from sqlalchemy import Boolean, Column, DateTime, Enum, ForeignKey, Integer, String, Text, Float, BigInteger, JSON
 from sqlalchemy.dialects.postgresql import UUID # Import UUID
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
@@ -93,6 +93,7 @@ class Job(Base):
     source = Column(String, nullable=True)
     posted_date = Column(DateTime, nullable=True)
     scraped_at = Column(DateTime(timezone=True), server_default=func.now())
+    spacy_entities = Column(JSON, nullable=True) # New field for Spacy entities
 
     user_matches = relationship("UserJobMatch", back_populates="job")
 

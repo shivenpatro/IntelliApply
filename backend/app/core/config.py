@@ -49,9 +49,17 @@ class Settings(BaseSettings):
     SUPABASE_SERVICE_KEY: Optional[str] = os.getenv("SUPABASE_SERVICE_KEY")
 
     # Additional scraper settings
-    SCRAPER_INTERVAL_MINUTES: Optional[int] = int(os.getenv("SCRAPER_INTERVAL_MINUTES", "60"))
+    SCRAPER_INTERVAL_MINUTES: Optional[int] = int(os.getenv("SCRAPER_INTERVAL_MINUTES", "60")) # Old setting, can be removed or kept for other uses
     SCRAPER_MAX_JOBS_PER_SOURCE: Optional[int] = int(os.getenv("SCRAPER_MAX_JOBS_PER_SOURCE", "30"))
     SCRAPER_SOURCES: Optional[str] = os.getenv("SCRAPER_SOURCES", "hackernews")
+    SCRAPER_SCHEDULE_HOURS: Optional[int] = int(os.getenv("SCRAPER_SCHEDULE_HOURS", "4")) # New setting for APScheduler
+    MATCHER_SCHEDULE_HOURS: Optional[int] = int(os.getenv("MATCHER_SCHEDULE_HOURS", "6")) # New setting for APScheduler
+
+    # Eden AI API Key
+    EDEN_AI_API_KEY: Optional[str] = os.getenv("EDEN_AI_API_KEY")
+
+    # Firecrawl API Key
+    FIRECRAWL_API_KEY: Optional[str] = os.getenv("FIRECRAWL_API_KEY")
 
     class Config:
         env_file = ".env"

@@ -1,6 +1,6 @@
 import { useRef, useEffect } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { EffectComposer, Bloom, Vignette } from '@react-three/postprocessing';
+// import { EffectComposer, Bloom, Vignette } from '@react-three/postprocessing'; // Commented out due to build issues
 import * as THREE from 'three';
 
 // Animated gradient background
@@ -136,22 +136,36 @@ function FloatingParticles({ count = 100 }) {
     points.current.geometry.attributes.position.needsUpdate = true;
     points.current.rotation.y = time * 0.05;
   });
-  
+  const geometryRef = useRef<THREE.BufferGeometry>(null);
+
+  useEffect(() => {
+    if (geometryRef.current) {
+      geometryRef.current.setAttribute('position', new THREE.BufferAttribute(particlesPosition, 3));
+      geometryRef.current.setAttribute('size', new THREE.BufferAttribute(particlesSizes, 1));
+    }
+  }, [count, particlesPosition, particlesSizes]); // Add dependencies
+
+  // Animate particles
+  useFrame((state) => {
+    if (!points.current || !geometryRef.current) return; // Check geometryRef too
+
+    const positions = geometryRef.current.attributes.position.array as Float32Array; // Get from geometryRef
+    const time = state.clock.elapsedTime;
+
+    for (let i = 0; i < count; i++) {
+      const i3 = i * 3;
+      positions[i3 + 1] += Math.sin(time * 0.2 + i * 0.1) * 0.002;
+      positions[i3] += Math.cos(time * 0.2 + i * 0.1) * 0.002;
+    }
+
+    geometryRef.current.attributes.position.needsUpdate = true; // Update geometryRef attribute
+    points.current.rotation.y = time * 0.05;
+  });
+
   return (
     <points ref={points}>
-      <bufferGeometry>
-        <bufferAttribute
-          attach="attributes-position"
-          count={count}
-          array={particlesPosition}
-          itemSize={3}
-        />
-        <bufferAttribute
-          attach="attributes-size"
-          count={count}
-          array={particlesSizes}
-          itemSize={1}
-        />
+      <bufferGeometry ref={geometryRef}>
+        {/* Attributes are now set imperatively via useEffect */}
       </bufferGeometry>
       <pointsMaterial
         size={0.1}
@@ -175,10 +189,10 @@ export default function BackgroundScene({ className = '' }: BackgroundSceneProps
       <Canvas camera={{ position: [0, 0, 5], fov: 75 }}>
         <GradientBackground />
         <FloatingParticles />
-        <EffectComposer>
+        {/* <EffectComposer>
           <Bloom luminanceThreshold={0.2} intensity={0.5} />
           <Vignette darkness={0.5} offset={0.5} />
-        </EffectComposer>
+        </EffectComposer> */}
       </Canvas>
     </div>
   );

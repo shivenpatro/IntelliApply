@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { Text, RoundedBox } from '@react-three/drei';
-import { useSpring, animated } from '@react-spring/three';
+// import { useSpring, animated } from '@react-spring/three'; // Commented out due to React 19 incompatibility
 import * as THREE from 'three';
 
 interface Card3DProps {
@@ -32,12 +32,15 @@ export default function Card3D({
   const meshRef = useRef<THREE.Mesh>(null);
   const [hovered, setHovered] = useState(false);
 
-  // Animation for hover effect
-  const { scale, cardColor } = useSpring({
-    scale: hovered ? 1.05 : 1,
-    cardColor: hovered ? hoverColor : color,
-    config: { mass: 1, tension: 280, friction: 60 }
-  });
+  // Animation for hover effect - COMMENTED OUT
+  // const { scale, cardColor } = useSpring({
+  //   scale: hovered ? 1.05 : 1,
+  //   cardColor: hovered ? hoverColor : color,
+  //   config: { mass: 1, tension: 280, friction: 60 }
+  // });
+  // Use static values instead
+  const scale = hovered ? 1.05 : 1;
+  const cardColor = hovered ? hoverColor : color;
 
   // Handle hover and click events
   const handlePointerOver = () => setHovered(true);
@@ -51,7 +54,8 @@ export default function Card3D({
   });
 
   return (
-    <animated.group
+    // <animated.group
+    <group // Use regular group
       position={position}
       rotation={rotation}
       scale={scale}
@@ -59,11 +63,13 @@ export default function Card3D({
       onPointerOut={handlePointerOut}
       onClick={handleClick}
     >
-      <animated.mesh ref={meshRef}>
+      {/* <animated.mesh ref={meshRef}> */}
+      <mesh ref={meshRef}> {/* Use regular mesh */}
         <RoundedBox args={[width, height, depth]} radius={0.1} smoothness={4}>
-          <animated.meshStandardMaterial color={cardColor} roughness={0.3} metalness={0.1} />
+          {/* <animated.meshStandardMaterial color={cardColor} roughness={0.3} metalness={0.1} /> */}
+          <meshStandardMaterial color={cardColor} roughness={0.3} metalness={0.1} /> {/* Use regular material */}
         </RoundedBox>
-        
+
         {/* Title */}
         <Text
           position={[0, 0.3, depth / 2 + 0.01]}
@@ -89,7 +95,9 @@ export default function Card3D({
             {subtitle}
           </Text>
         )}
-      </animated.mesh>
-    </animated.group>
+      {/* </animated.mesh> */}
+      </mesh>
+    {/* </animated.group> */}
+    </group>
   );
 }

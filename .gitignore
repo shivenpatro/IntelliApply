@@ -60,3 +60,13 @@ logs/
 
 # Uploads
 backend/uploads/
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+env.bak/
+ENV.bak/
+.virtualenv/
+.venv312/
+.clinerules/
