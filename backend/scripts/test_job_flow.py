@@ -24,71 +24,115 @@ from app.core.config import settings # Import settings
 load_dotenv()
 print(f"DEBUG: DATABASE_URL used by script: {settings.DATABASE_URL}") # Add debug print
 
+from supabase import create_client, Client # Import Supabase client
 from app.db.database import SessionLocal
 from app.db.models import User, Profile, Skill, Experience, Job, UserJobMatch
-from app.services.hackernews_scraper import run_hackernews_scraper
+# Import trigger_job_scraping instead of run_hackernews_scraper
+from app.services.job_scraper import trigger_job_scraping 
 from app.services.job_matcher import match_jobs_for_user
 
 async def get_test_user_and_profile(db: Session):
     """
-    Fetches the test user (test@example.com) and their profile from the local cache tables.
-    Assumes the user exists in Supabase Auth and has made at least one authenticated request
-    to populate the local public.users and public.profiles tables.
+    Fetches the test user (test@example.com) and their profile, creating them if they don't exist.
     """
-    test_email = "test.user.d0u5pg5j@example.com" # Use the actual test user email
-    print(f"Attempting to fetch test user ({test_email}) from local cache...")
-    test_user = db.query(User).filter(User.email == test_email).first()
+    test_email = "test.user.d0u5pg5j@example.com"
+    print(f"Attempting to get Supabase user {test_email}...")
+    try:
+        # 1. Get user from Supabase Auth
+        # list_users() is synchronous, so we don't await it directly here.
+        # The supabase client itself handles async operations if needed.
+        users_list = supabase_client.auth.admin.list_users() # Returns a list of User objects
+        found_user = None
+        for u in users_list: # Iterate directly over the list
+            if u.email == test_email:
+                found_user = u
+                break
+        
+        if found_user:
+            print(f"Found Supabase user: {test_email} (ID: {found_user.id})")
+            test_user_id = found_user.id
+        else:
+            print(f"User not found in Supabase. Creating user {test_email}...")
+            # Create user in Supabase
+            import secrets
+            import string
+            password = ''.join(secrets.choice(string.ascii_letters + string.digits) for _ in range(16))
+            # create_user is also synchronous on the admin API
+            create_response = supabase_client.auth.admin.create_user({
+                "email": test_email,
+                "password": password,
+                "email_confirm": True  # Auto-confirm email
+            })
+            if create_response and create_response.id: # Check if user object is returned and has id
+                print(f"Successfully created Supabase user {test_email} (ID: {create_response.id})")
+                test_user_id = create_response.id
+            else:
+                # The create_user response might not have a nested 'user' object like other calls
+                # It might directly return the user object or an error.
+                # Let's assume if no ID, it failed.
+                error_detail = getattr(create_response, 'error', 'Unknown error')
+                raise Exception(f"Failed to create Supabase user: {error_detail}")
+        
+        # 2. Get or create profile
+        print(f"Attempting to fetch profile for user ID: {test_user_id}...")
+        profile = db.query(Profile).filter(Profile.id == test_user_id).first()
+        if profile:
+            print("Existing profile found.")
+        else:
+            print("No profile found. Creating...")
+            profile = Profile(id=test_user_id, first_name="Test", last_name="User", desired_roles="Software Engineer", desired_locations="Remote")
+            db.add(profile)
+            db.commit()
+            print("Created test profile.")
+            
+        # 3. Get or create local User
+        local_user = db.query(User).filter(User.supabase_id == test_user_id).first()
+        if not local_user:
+            print("Creating local user...")
+            local_user = User(email=test_email, supabase_id=test_user_id, hashed_password="test", is_active=True)
+            db.add(local_user)
+            db.commit()
+            print("Created local user.")
+        
+        # 4. Add skills and experience if needed
+        existing_skill_count = db.query(Skill).filter(Skill.profile_id == profile.id).count()
+        if existing_skill_count == 0:
+            print("Adding skills and experience to profile...")
+            # Add skills
+            skills = [
+                Skill(profile_id=profile.id, name="Python", level="Expert"),
+                Skill(profile_id=profile.id, name="JavaScript", level="Expert"),
+                Skill(profile_id=profile.id, name="React", level="Intermediate"),
+                Skill(profile_id=profile.id, name="Node.js", level="Intermediate"),
+                Skill(profile_id=profile.id, name="SQL", level="Intermediate"),
+                Skill(profile_id=profile.id, name="FastAPI", level="Beginner"),
+            ]
+            db.add_all(skills)
 
-    if not test_user:
-        raise Exception(f"Test user '{test_email}' not found in local 'users' table. "
-                        "Ensure the user exists in Supabase Auth and has made an authenticated request to the backend.")
+            # Add experience
+            experience = Experience(
+                profile_id=profile.id,
+                title="Software Developer",
+                company="Previous Company",
+                location="Remote",
+                description="Developed web applications using React, Node.js, and Python."
+            )
+            db.add(experience)
 
-    if not test_user.supabase_id:
-         raise Exception(f"Test user '{test_user.email}' found in local 'users' table, but supabase_id is missing.")
+            db.commit()
+            print("Skills and experience added.")
+        else:
+            print("Skills and experience already exist for this profile.")
 
-    print(f"Found test user: {test_user.email} (Supabase ID: {test_user.supabase_id})")
+        db.commit() # Commit any changes to profile or local_user
+        # db.close() # Don't close the session here, let main() handle it
+        return test_user_id # Return the ID (Supabase UUID)
 
-    print(f"Attempting to fetch profile for user ID: {test_user.supabase_id}...")
-    profile = db.query(Profile).filter(Profile.id == test_user.supabase_id).first()
-
-    if not profile:
-        raise Exception(f"Profile not found for user ID '{test_user.supabase_id}' in local 'profiles' table. "
-                        "Ensure the Supabase trigger 'handle_new_user' is active or the user has made an authenticated request.")
-
-    print("Existing profile found.")
-
-    # Optional: Check/add skills/experience if needed, similar to previous logic, but fetch profile first.
-    existing_skill_count = db.query(Skill).filter(Skill.profile_id == profile.id).count()
-    if existing_skill_count == 0:
-        print("Adding skills and experience to profile...")
-        # Add skills
-        skills = [
-            Skill(profile_id=profile.id, name="Python", level="Expert"),
-            Skill(profile_id=profile.id, name="JavaScript", level="Expert"),
-            Skill(profile_id=profile.id, name="React", level="Intermediate"),
-            Skill(profile_id=profile.id, name="Node.js", level="Intermediate"),
-            Skill(profile_id=profile.id, name="SQL", level="Intermediate"),
-            Skill(profile_id=profile.id, name="FastAPI", level="Beginner"),
-        ]
-        db.add_all(skills)
-
-        # Add experience
-        experience = Experience(
-            profile_id=profile.id,
-            title="Software Developer",
-            company="Previous Company",
-            location="Remote",
-            description="Developed web applications using React, Node.js, and Python."
-        )
-        db.add(experience)
-
-        db.commit()
-        print("Skills and experience added.")
-    else:
-        print("Skills and experience already exist for this profile.")
-
-
-    return test_user # Return the user object which contains the supabase_id
+    except Exception as e:
+        print(f"Error getting/creating user and profile: {e}")
+        if 'db' in locals():
+            db.close()
+        raise e
 
 async def display_matched_jobs(db: Session, user_id: UUID):
     """Display the matched jobs for a user"""
@@ -126,25 +170,28 @@ async def main():
         # Create DB session
         db = SessionLocal()
         
-        # Get test user (will raise exception if not found/setup correctly)
-        test_user = await get_test_user_and_profile(db)
+        # Get test user ID (will raise exception if not found/setup correctly)
+        # Pass the session from main to be used by get_test_user_and_profile
+        test_user_supabase_id = await get_test_user_and_profile(db) 
         
-        # Scrape jobs from Hacker News
-        print("\nScraping jobs from Hacker News...")
-        jobs = await run_hackernews_scraper(db, max_jobs=20)
+        # Trigger all configured job scraping
+        print("\nTriggering job scraping (includes Indeed if configured)...")
+        await trigger_job_scraping() # This will use the session from within trigger_job_scraping
         
-        # Count jobs in database
-        job_count = db.query(Job).count()
+        # Count jobs in database (use a new session for this query after scraping)
+        db_for_count = SessionLocal()
+        job_count = db_for_count.query(Job).count()
+        db_for_count.close()
         print(f"\nTotal jobs in database: {job_count}")
         
         # Match jobs for the test user
-        print(f"\nMatching jobs for test user (ID: {test_user.supabase_id})...")
-        await match_jobs_for_user(test_user.supabase_id)
+        print(f"\nMatching jobs for test user (ID: {test_user_supabase_id})...")
+        await match_jobs_for_user(test_user_supabase_id)
         
         # Display matched jobs
-        await display_matched_jobs(db, test_user.supabase_id)
+        await display_matched_jobs(db, test_user_supabase_id)
         
-        db.close()
+        db.close() # Close the session created in main()
         print("\nJob flow test completed successfully!")
         
     except Exception as e:
@@ -152,5 +199,15 @@ async def main():
         if 'db' in locals():
             db.close()
 
+# Initialize Supabase client at module level
+supabase_client: Client = None
+if settings.SUPABASE_URL and settings.SUPABASE_SERVICE_KEY:
+    supabase_client = create_client(settings.SUPABASE_URL, settings.SUPABASE_SERVICE_KEY)
+else:
+    print("Supabase URL or Service Key not configured. Supabase operations in this script will fail.")
+
 if __name__ == "__main__":
-    asyncio.run(main())
+    if not supabase_client:
+        print("Exiting script because Supabase client could not be initialized.")
+    else:
+        asyncio.run(main())

@@ -1,7 +1,7 @@
 import { useRef, useState, useEffect } from 'react';
-import { useFrame } from '@react-three/fiber';
-import { Text3D, Center, useMatcapTexture } from '@react-three/drei';
-import { useSpring, animated } from '@react-spring/three';
+import { Canvas, useFrame } from '@react-three/fiber';
+import { Text, useMatcapTexture, Center, Text3D } from '@react-three/drei'; // Added missing imports
+// import { useSpring, animated } from '@react-spring/three'; // Commented out due to React 19 incompatibility
 import * as THREE from 'three';
 
 interface FloatingLogoProps {
@@ -23,11 +23,13 @@ export default function FloatingLogo({
   const [hovered, setHovered] = useState(false);
   const [matcapTexture] = useMatcapTexture('7B5254_E9DCC7_B19986_C8AC91', 256);
 
-  // Animation for hover effect
-  const { currentColor } = useSpring({
-    currentColor: hovered ? hoverColor : color,
-    config: { mass: 5, tension: 350, friction: 40 }
-  });
+  // Animation for hover effect - COMMENTED OUT
+  // const { currentColor } = useSpring({
+  //   currentColor: hovered ? hoverColor : color,
+  //   config: { mass: 5, tension: 350, friction: 40 }
+  // });
+  // Use static color
+  const currentColor = hovered ? hoverColor : color;
 
   // Floating animation
   useFrame((state) => {
@@ -42,7 +44,8 @@ export default function FloatingLogo({
 
   return (
     <Center position={position}>
-      <animated.mesh
+      {/* <animated.mesh */}
+      <mesh // Use regular mesh
         ref={meshRef}
         scale={scale}
         onPointerOver={() => setHovered(true)}
@@ -60,12 +63,14 @@ export default function FloatingLogo({
           bevelSegments={5}
         >
           {text}
-          <animated.meshMatcapMaterial
+          {/* <animated.meshMatcapMaterial */}
+          <meshMatcapMaterial // Use regular material
             matcap={matcapTexture}
             color={currentColor}
           />
         </Text3D>
-      </animated.mesh>
+      {/* </animated.mesh> */}
+      </mesh>
     </Center>
   );
 }

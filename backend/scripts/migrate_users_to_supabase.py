@@ -7,6 +7,10 @@ import os
 import sys
 import asyncio
 from sqlalchemy.orm import Session
+import os
+import sys
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
 from dotenv import load_dotenv
 
 # Add the parent directory to sys.path
@@ -15,7 +19,11 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 # Load environment variables
 load_dotenv()
 
-from app.db.database import SessionLocal
+from app.core.config import settings
+# Create a new engine and SessionLocal using the PostgreSQL URL
+engine = create_engine(settings.DATABASE_URL)
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
 from app.db.models import User
 from app.db.supabase import supabase
 

@@ -444,7 +444,8 @@ const ProfilePage = () => {
                 )}
               </button>
 
-              {profile.skills.length > 0 && !uploading && (
+              {/* Add check for profile?.skills before accessing length */}
+              {profile?.skills && profile.skills.length > 0 && !uploading && (
                 <span className="ml-3 text-sm text-gray-500">
                   {profile.skills.length} skills detected
                 </span>

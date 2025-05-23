@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { Text, RoundedBox } from '@react-three/drei';
-import { useSpring, animated } from '@react-spring/three';
+// import { useSpring, animated } from '@react-spring/three'; // Commented out due to React 19 incompatibility
 import * as THREE from 'three';
 
 interface AnimatedButton3DProps {
@@ -31,13 +31,18 @@ export default function AnimatedButton3D({
   const [hovered, setHovered] = useState(false);
   const [clicked, setClicked] = useState(false);
 
-  // Animation for hover and click effects
-  const { scale, buttonColor, buttonPosition } = useSpring({
-    scale: hovered ? 1.1 : 1,
-    buttonColor: hovered ? hoverColor : color,
-    buttonPosition: clicked ? [0, -0.05, 0] : [0, 0, 0],
-    config: { mass: 1, tension: 280, friction: 60 }
-  });
+  // Animation for hover and click effects - COMMENTED OUT
+  // const { scale, buttonColor, buttonPosition } = useSpring({
+  //   scale: hovered ? 1.1 : 1,
+  //   buttonColor: hovered ? hoverColor : color,
+  //   buttonPosition: clicked ? [0, -0.05, 0] : [0, 0, 0],
+  //   config: { mass: 1, tension: 280, friction: 60 }
+  // });
+  // Use static values instead of animated ones
+  const scale = hovered ? 1.1 : 1;
+  const buttonColor = hovered ? hoverColor : color;
+  const buttonPosition = clicked ? [0, -0.05, 0] : [0, 0, 0];
+
 
   // Handle hover and click events
   const handlePointerOver = () => setHovered(true);
@@ -60,7 +65,8 @@ export default function AnimatedButton3D({
 
   return (
     <group position={position}>
-      <animated.mesh
+      {/* <animated.mesh */}
+      <mesh // Use regular mesh instead of animated.mesh
         ref={meshRef}
         scale={scale}
         position={buttonPosition as any}
@@ -70,13 +76,14 @@ export default function AnimatedButton3D({
       >
         {/* Button body */}
         <RoundedBox args={[width, height, depth]} radius={0.1} smoothness={4}>
-          <animated.meshStandardMaterial 
-            color={buttonColor} 
-            roughness={0.3} 
+          {/* <animated.meshStandardMaterial */}
+          <meshStandardMaterial // Use regular material
+            color={buttonColor}
+            roughness={0.3}
             metalness={0.2}
           />
         </RoundedBox>
-        
+
         {/* Button text */}
         <Text
           position={[0, 0, depth / 2 + 0.01]}
@@ -88,7 +95,8 @@ export default function AnimatedButton3D({
         >
           {text}
         </Text>
-      </animated.mesh>
+      {/* </animated.mesh> */}
+      </mesh>
     </group>
   );
 }

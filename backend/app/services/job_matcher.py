@@ -132,9 +132,13 @@ async def match_jobs_for_all_users():
         
         # Match jobs for each user
         for user in users:
-            await match_jobs_for_user(user.id)
-            # Pause to avoid overwhelming the system
-            await asyncio.sleep(1)
+            if user.supabase_id: # Ensure supabase_id exists
+                print(f"Scheduler: Triggering matching for user with supabase_id: {user.supabase_id}")
+                await match_jobs_for_user(user.supabase_id) # Pass supabase_id (UUID)
+                # Pause to avoid overwhelming the system
+                await asyncio.sleep(1)
+            else:
+                print(f"Scheduler: Skipping user with local id {user.id} as they don't have a supabase_id.")
             
         print("Job matching completed for all users")
         

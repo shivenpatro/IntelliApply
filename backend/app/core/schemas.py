@@ -108,6 +108,7 @@ class JobBase(BaseModel):
     url: Optional[str] = None
     source: Optional[str] = None
     posted_date: Optional[datetime] = None
+    spacy_entities: Optional[dict] = None # New field for Spacy entities
 
 class JobCreate(JobBase):
     pass
