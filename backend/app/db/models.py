@@ -89,11 +89,11 @@ class Job(Base):
     company = Column(String, nullable=False)
     location = Column(String, nullable=True)
     description = Column(Text, nullable=True)
-    url = Column(String, nullable=True)
-    source = Column(String, nullable=True)
+    url = Column(String, nullable=True, unique=True, index=True) # Added unique=True and ensure index=True
+    source = Column(String, nullable=True, index=True) # Added index=True
     posted_date = Column(DateTime, nullable=True)
     scraped_at = Column(DateTime(timezone=True), server_default=func.now())
-    spacy_entities = Column(JSON, nullable=True) # New field for Spacy entities
+    # spacy_entities = Column(JSON, nullable=True) # Temporarily commented out
 
     user_matches = relationship("UserJobMatch", back_populates="job")
 

@@ -108,7 +108,7 @@ class JobBase(BaseModel):
     url: Optional[str] = None
     source: Optional[str] = None
     posted_date: Optional[datetime] = None
-    spacy_entities: Optional[dict] = None # New field for Spacy entities
+    # spacy_entities: Optional[dict] = None # Temporarily commented out
 
 class JobCreate(JobBase):
     pass
@@ -132,7 +132,7 @@ class UserJobMatchUpdate(BaseModel):
 
 class UserJobMatch(UserJobMatchBase):
     id: int
-    user_id: int
+    user_id: uuid.UUID # Changed from int to uuid.UUID
     job_id: int
     created_at: datetime
     updated_at: Optional[datetime] = None

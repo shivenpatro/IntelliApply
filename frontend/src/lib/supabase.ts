@@ -260,3 +260,20 @@ export const getSession = async () => {
 export const onAuthStateChange = (callback: (event: any, session: any) => void) => {
   return supabase.auth.onAuthStateChange(callback);
 };
+
+export const signInWithGoogle = async () => {
+  console.log('Attempting to sign in with Google...');
+  const { data, error } = await supabase.auth.signInWithOAuth({
+    provider: 'google',
+    options: {
+      // Optional: redirectTo can be used if you want users to land on a specific page after Google auth
+      // redirectTo: `${window.location.origin}/dashboard` 
+    }
+  });
+  if (error) {
+    console.error('Error signing in with Google:', error);
+    // The error will typically be handled by the component calling this,
+    // or by onAuthStateChange if it's a redirect-based error.
+  }
+  return { data, error };
+};

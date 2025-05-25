@@ -11,6 +11,8 @@ import RegisterPage from './pages/RegisterPage';
 import LoginPage from './pages/LoginPage';
 import DashboardPage from './pages/DashboardPage';
 import ProfilePage from './pages/ProfilePage';
+import ForgotPasswordPage from './pages/ForgotPasswordPage'; // Import ForgotPasswordPage
+import UpdatePasswordPage from './pages/UpdatePasswordPage'; // Import UpdatePasswordPage
 
 // Auth context
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -51,6 +53,8 @@ function AppContent() {
               <ProfilePage />
             </ProtectedRoute>
           } />
+          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+          <Route path="/update-password" element={<UpdatePasswordPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>

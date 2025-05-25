@@ -1,15 +1,22 @@
 from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
 from sqlalchemy.orm import Session
-from typing import List
+from typing import List, Dict
+import uuid # For generating task IDs
+import logging # For logging
 
 from app.core.schemas import JobWithMatch, UserJobMatchUpdate
 from app.core.supabase_auth import get_current_active_user
 from app.db.database import get_db
 from app.db.models import User, Job, UserJobMatch, JobStatus
-from app.services.job_scraper import trigger_job_scraping
-from app.services.job_matcher import match_jobs_for_user
+from app.services.job_scraper import trigger_job_scraping # This will need to accept task_id and update status
+from app.services.job_matcher import match_jobs_for_user # This will also need task_id and update status
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+# In-memory store for task statuses. For production, use Redis or a DB table.
+task_statuses: Dict[str, Dict[str, str]] = {}
 
 @router.get("/matched", response_model=List[JobWithMatch])
 async def get_matched_jobs(current_user: User = Depends(get_current_active_user), db: Session = Depends(get_db)):
@@ -65,14 +72,33 @@ async def update_job_status(
 
     return {"success": True}
 
-@router.post("/refresh", response_model=dict)
-async def refresh_jobs(background_tasks: BackgroundTasks, current_user: User = Depends(get_current_active_user)):
-    # Trigger job scraping in the background
-    background_tasks.add_task(trigger_job_scraping)
-    # Schedule matching for the current user using supabase_id
-    background_tasks.add_task(match_jobs_for_user, current_user.supabase_id)
+    return {"success": True}
 
-    return {"success": True, "message": "Job refresh scheduled"}
+@router.post("/refresh", status_code=status.HTTP_202_ACCEPTED, response_model=Dict[str, str])
+async def refresh_jobs_and_matches_api(background_tasks: BackgroundTasks, current_user: User = Depends(get_current_active_user)):
+    task_id = uuid.uuid4().hex
+    task_statuses[task_id] = {"status": "pending", "message": "Job refresh process initiated."}
+    
+    logger.info(f"User {current_user.email} triggered job refresh. Task ID: {task_id}")
+
+    # Pass task_id to background tasks
+    # Note: The actual functions trigger_job_scraping and match_jobs_for_user
+    # will need to be modified to accept task_id and update task_statuses.
+    # For now, we'll queue them. The status updates will be added in subsequent steps.
+    background_tasks.add_task(trigger_job_scraping, task_id=task_id, task_statuses_ref=task_statuses)
+    background_tasks.add_task(match_jobs_for_user, user_id=current_user.supabase_id, task_id=task_id, task_statuses_ref=task_statuses)
+
+    return {"task_id": task_id, "message": "Job refresh process started. Poll status endpoint for updates."}
+
+@router.get("/refresh/status/{task_id}", response_model=Dict[str, str])
+async def get_refresh_status(task_id: str):
+    status_info = task_statuses.get(task_id)
+    if not status_info:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Task ID not found.")
+    
+    # Optional: Clean up old tasks after some time or if status is 'completed'/'failed'
+    # For simplicity, not adding cleanup logic here yet.
+    return {"task_id": task_id, **status_info}
 
 @router.get("/counts", response_model=dict) # Changed path to /counts (plural)
 async def get_job_count(current_user: User = Depends(get_current_active_user), db: Session = Depends(get_db)):
