@@ -1,97 +1,112 @@
 import { useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, NavLink, useNavigate } from 'react-router-dom'; // Using NavLink for active styling
 import { useAuth } from '../../context/AuthContext';
+
+// Heroicons (example, you might install @heroicons/react)
+const MenuIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
+  </svg>
+);
+
+const XIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+  </svg>
+);
+
+const LogoutIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5 mr-2">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l-3 3m0 0l3 3m-3-3h12.75" />
+  </svg>
+);
+
+// A simple, abstract logo SVG - replace with your actual logo component if you have one
+const IntelliApplyLogo = () => (
+    <svg width="32" height="32" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" className="mr-2 text-theme-accent-cyan">
+        <path d="M20 0L25.3301 14.6699L40 20L25.3301 25.3301L20 40L14.6699 25.3301L0 20L14.6699 14.6699L20 0Z" fill="currentColor"/>
+        <path d="M20 10L22.6601 17.3399L30 20L22.6601 22.6601L20 30L17.3399 22.6601L10 20L17.3399 17.3399L20 10Z" fill="#0A192F"/>
+    </svg>
+);
+
 
 const Navbar = () => {
   const { isAuthenticated, logout } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const location = useLocation();
+  const navigate = useNavigate();
 
-  // Helper to determine if a link is active
-  const isActive = (path: string) => location.pathname === path;
+  const handleLogout = async () => {
+    setMobileMenuOpen(false);
+    await logout(); // AuthContext logout should handle navigation or state update
+    navigate('/'); // Navigate to home after logout
+  };
+
+  const navLinkClasses = "px-3 py-2 rounded-md text-sm font-medium transition-colors duration-150";
+  const activeNavLinkClasses = "text-theme-accent-cyan";
+  const inactiveNavLinkClasses = "text-theme-text-secondary hover:text-theme-text-primary";
+  
+  const mobileNavLinkClasses = "block px-3 py-2 rounded-md text-base font-medium transition-colors duration-150";
+  const activeMobileNavLinkClasses = "bg-theme-surface text-theme-accent-cyan";
+  const inactiveMobileNavLinkClasses = "text-theme-text-secondary hover:bg-theme-surface hover:text-theme-text-primary";
+
 
   return (
-    <nav className="bg-gradient-to-r from-blue-600 to-indigo-700 shadow-lg">
+    <nav className="sticky top-0 z-50 bg-theme-bg/80 backdrop-blur-md shadow-lg">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between h-16">
-          <div className="flex">
-            <div className="flex-shrink-0 flex items-center">
-              <Link to="/" className="text-2xl font-bold text-white flex items-center">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                </svg>
-                IntelliApply
-              </Link>
-            </div>
-            <div className="hidden sm:ml-6 sm:flex sm:space-x-8">
-              {/* Navigation links */}
-              {isAuthenticated && (
-                <>
-                  <Link
-                    to="/dashboard"
-                    className={`${isActive('/dashboard')
-                      ? 'border-white text-white'
-                      : 'border-transparent text-blue-100 hover:border-blue-200 hover:text-white'}
-                      inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium transition-colors duration-200`}
-                  >
-                    Dashboard
-                  </Link>
-                  <Link
-                    to="/profile"
-                    className={`${isActive('/profile')
-                      ? 'border-white text-white'
-                      : 'border-transparent text-blue-100 hover:border-blue-200 hover:text-white'}
-                      inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium transition-colors duration-200`}
-                  >
-                    Profile
-                  </Link>
-                </>
-              )}
-            </div>
+        <div className="flex items-center justify-between h-16">
+          {/* Logo and Brand Name */}
+          <div className="flex-shrink-0 flex items-center">
+            <Link to="/" className="flex items-center">
+              <IntelliApplyLogo />
+              <span className="font-display text-2xl font-bold text-theme-text-primary">IntelliApply</span>
+            </Link>
           </div>
+
+          {/* Desktop Navigation Links */}
+          <div className="hidden sm:ml-6 sm:flex sm:items-center sm:space-x-4">
+            {isAuthenticated && (
+              <>
+                <NavLink
+                  to="/dashboard"
+                  className={({ isActive }) => `${navLinkClasses} ${isActive ? activeNavLinkClasses : inactiveNavLinkClasses}`}
+                >
+                  Dashboard
+                </NavLink>
+                <NavLink
+                  to="/profile"
+                  className={({ isActive }) => `${navLinkClasses} ${isActive ? activeNavLinkClasses : inactiveNavLinkClasses}`}
+                >
+                  Profile
+                </NavLink>
+              </>
+            )}
+          </div>
+
+          {/* Desktop Auth Buttons */}
           <div className="hidden sm:ml-6 sm:flex sm:items-center">
-            {/* Auth buttons */}
             {isAuthenticated ? (
               <button
-                onClick={(e) => {
-                  e.preventDefault();
-                  console.log('Logout button clicked');
-                  // Clear local storage immediately
-                  const storageKeys = Object.keys(localStorage);
-                  storageKeys.forEach(key => {
-                    if (key.includes('supabase') || key.includes('sb-')) {
-                      localStorage.removeItem(key);
-                    }
-                  });
-                  // Call logout and force redirect
-                  logout();
-                  // Force redirect regardless of logout success
-                  setTimeout(() => {
-                    window.location.href = '/';
-                  }, 100);
-                }}
-                className="ml-4 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-indigo-700 bg-white hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-white transition-colors duration-200"
+                onClick={handleLogout}
+                className="flex items-center px-4 py-2 border border-theme-text-secondary text-sm font-medium rounded-md text-theme-text-secondary hover:text-theme-accent-amber hover:border-theme-accent-amber transition-colors duration-150"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                </svg>
+                <LogoutIcon />
                 Logout
               </button>
             ) : (
-              <>
+              <div className="space-x-3">
                 <Link
                   to="/login"
-                  className="ml-4 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-indigo-700 bg-white hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-white transition-colors duration-200"
+                  className="px-4 py-2 border border-theme-accent-cyan text-sm font-medium rounded-md text-theme-accent-cyan hover:bg-theme-accent-cyan/10 transition-colors duration-150"
                 >
                   Login
                 </Link>
                 <Link
                   to="/register"
-                  className="ml-4 inline-flex items-center px-4 py-2 border border-white text-sm font-medium rounded-md shadow-sm text-blue-600 bg-white hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-white transition-colors duration-200"
+                  className="px-4 py-2 border border-transparent text-sm font-medium rounded-md text-theme-bg bg-theme-accent-cyan hover:bg-theme-accent-cyan-darker transition-colors duration-150 shadow-md"
                 >
                   Register
                 </Link>
-              </>
+              </div>
             )}
           </div>
 
@@ -99,112 +114,65 @@ const Navbar = () => {
           <div className="flex items-center sm:hidden">
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="inline-flex items-center justify-center p-2 rounded-md text-white hover:text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-white"
-              aria-expanded="false"
+              className="inline-flex items-center justify-center p-2 rounded-md text-theme-text-primary hover:text-theme-accent-cyan hover:bg-theme-surface focus:outline-none focus:ring-2 focus:ring-inset focus:ring-theme-accent-cyan"
+              aria-expanded={mobileMenuOpen}
+              aria-controls="mobile-menu"
             >
               <span className="sr-only">Open main menu</span>
-              {/* Icon when menu is closed */}
-              <svg
-                className={`${mobileMenuOpen ? 'hidden' : 'block'} h-6 w-6`}
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                aria-hidden="true"
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-              </svg>
-              {/* Icon when menu is open */}
-              <svg
-                className={`${mobileMenuOpen ? 'block' : 'hidden'} h-6 w-6`}
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                aria-hidden="true"
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
+              {mobileMenuOpen ? <XIcon /> : <MenuIcon />}
             </button>
           </div>
         </div>
       </div>
 
       {/* Mobile menu */}
-      <div className={`${mobileMenuOpen ? 'block' : 'hidden'} sm:hidden`}>
-        <div className="pt-2 pb-3 space-y-1 bg-blue-800">
-          {isAuthenticated ? (
-            <>
-              <Link
-                to="/dashboard"
-                className={`${isActive('/dashboard')
-                  ? 'bg-indigo-800 text-white'
-                  : 'text-blue-100 hover:bg-blue-700 hover:text-white'}
-                  block pl-3 pr-4 py-2 text-base font-medium`}
-                onClick={() => setMobileMenuOpen(false)}
-              >
-                Dashboard
-              </Link>
-              <Link
-                to="/profile"
-                className={`${isActive('/profile')
-                  ? 'bg-indigo-800 text-white'
-                  : 'text-blue-100 hover:bg-blue-700 hover:text-white'}
-                  block pl-3 pr-4 py-2 text-base font-medium`}
-                onClick={() => setMobileMenuOpen(false)}
-              >
-                Profile
-              </Link>
-              <button
-                onClick={(e) => {
-                  e.preventDefault();
-                  console.log('Mobile logout button clicked');
-                  setMobileMenuOpen(false);
-                  // Clear local storage immediately
-                  const storageKeys = Object.keys(localStorage);
-                  storageKeys.forEach(key => {
-                    if (key.includes('supabase') || key.includes('sb-')) {
-                      localStorage.removeItem(key);
-                    }
-                  });
-                  // Call logout and force redirect
-                  logout();
-                  // Force redirect regardless of logout success
-                  setTimeout(() => {
-                    window.location.href = '/';
-                  }, 100);
-                }}
-                className="block w-full text-left pl-3 pr-4 py-2 text-base font-medium text-blue-100 hover:bg-blue-700 hover:text-white"
-              >
-                Logout
-              </button>
-            </>
-          ) : (
-            <>
-              <Link
-                to="/login"
-                className={`${isActive('/login')
-                  ? 'bg-indigo-800 text-white'
-                  : 'text-blue-100 hover:bg-blue-700 hover:text-white'}
-                  block pl-3 pr-4 py-2 text-base font-medium`}
-                onClick={() => setMobileMenuOpen(false)}
-              >
-                Login
-              </Link>
-              <Link
-                to="/register"
-                className={`${isActive('/register')
-                  ? 'bg-indigo-800 text-white'
-                  : 'text-blue-100 hover:bg-blue-700 hover:text-white'}
-                  block pl-3 pr-4 py-2 text-base font-medium`}
-                onClick={() => setMobileMenuOpen(false)}
-              >
-                Register
-              </Link>
-            </>
-          )}
+      {mobileMenuOpen && (
+        <div className="sm:hidden bg-theme-bg border-t border-theme-surface" id="mobile-menu">
+          <div className="px-2 pt-2 pb-3 space-y-1">
+            {isAuthenticated ? (
+              <>
+                <NavLink
+                  to="/dashboard"
+                  className={({ isActive }) => `${mobileNavLinkClasses} ${isActive ? activeMobileNavLinkClasses : inactiveMobileNavLinkClasses}`}
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  Dashboard
+                </NavLink>
+                <NavLink
+                  to="/profile"
+                  className={({ isActive }) => `${mobileNavLinkClasses} ${isActive ? activeMobileNavLinkClasses : inactiveMobileNavLinkClasses}`}
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  Profile
+                </NavLink>
+                <button
+                  onClick={handleLogout}
+                  className={`${mobileNavLinkClasses} ${inactiveMobileNavLinkClasses} w-full text-left`}
+                >
+                  Logout
+                </button>
+              </>
+            ) : (
+              <>
+                <NavLink
+                  to="/login"
+                  className={({ isActive }) => `${mobileNavLinkClasses} ${isActive ? activeMobileNavLinkClasses : inactiveMobileNavLinkClasses}`}
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  Login
+                </NavLink>
+                <NavLink
+                  to="/register"
+                  className={({ isActive }) => `${mobileNavLinkClasses} ${isActive ? activeMobileNavLinkClasses : inactiveMobileNavLinkClasses}`}
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  Register
+                </NavLink>
+              </>
+            )}
+          </div>
         </div>
-      </div>
+      )}
     </nav>
   );
 };

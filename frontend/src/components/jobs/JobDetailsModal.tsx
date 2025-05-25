@@ -1,4 +1,12 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
+
+// --- Icons (Consider using a library like Heroicons) ---
+const XMarkIcon = () => <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>;
+const BuildingOfficeIcon = () => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 mr-1.5 opacity-70"><path fillRule="evenodd" d="M1.5 7.126c0-1.32.964-2.504 2.25-2.833.6-.15 1.177-.22 1.75-.22h9c.573 0 1.15.07 1.75.22A2.996 2.996 0 0118.5 7.126V15.5A2.5 2.5 0 0116 18H4a2.5 2.5 0 01-2.5-2.5V7.126zM10 12a.75.75 0 00-1.5 0v.002A.75.75 0 0010 12zm3 0a.75.75 0 00-1.5 0v.002a.75.75 0 001.5 0zm-6-2.25A.75.75 0 017.5 9h.008a.75.75 0 01.75.75v.002a.75.75 0 01-.75.75H7.5a.75.75 0 01-.75-.75V9.75zm3 0A.75.75 0 0110.5 9h.008a.75.75 0 01.75.75v.002a.75.75 0 01-.75.75H10.5a.75.75 0 01-.75-.75V9.75zm3 0A.75.75 0 0113.5 9h.008a.75.75 0 01.75.75v.002a.75.75 0 01-.75.75H13.5a.75.75 0 01-.75-.75V9.75z" clipRule="evenodd" /></svg>;
+const MapPinIcon = () => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 mr-1.5 opacity-70"><path fillRule="evenodd" d="M9.69 18.933l.003.001C9.89 19.02 10 19 10 19s.11.02.308-.066l.002-.001.006-.003.018-.008a5.741 5.741 0 00.281-.145l.002-.001L10 18.41l.285.145.002.001.018.008.006.004c.092.042.2.077.28.11L10 19zM10 2C7.239 2 5 4.239 5 7c0 .353.044.692.128 1.014l.001.002.002.005.004.009a6.256 6.256 0 00.02.028l.003.003.002.002A6.212 6.212 0 0010 15.5c1.075 0 2.098-.276 2.97-.768A6.212 6.212 0 0010 15.5zM10 7a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" /></svg>;
+const CalendarDaysIcon = () => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 mr-1.5 opacity-70"><path fillRule="evenodd" d="M5.75 2a.75.75 0 01.75.75V4h7V2.75a.75.75 0 011.5 0V4h.25A2.75 2.75 0 0118 6.75v8.5A2.75 2.75 0 0115.25 18H4.75A2.75 2.75 0 012 15.25v-8.5A2.75 2.75 0 014.75 4H5V2.75A.75.75 0 015.75 2zm-1 5.5c-.69 0-1.25.56-1.25 1.25v6.5c0 .69.56 1.25 1.25 1.25h10.5c.69 0 1.25-.56 1.25-1.25v-6.5c0-.69-.56-1.25-1.25-1.25H4.75z" clipRule="evenodd" /></svg>;
+const LinkIcon = () => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 mr-1.5 opacity-70"><path d="M12.232 4.232a2.5 2.5 0 013.536 3.536l-1.225 1.224a.75.75 0 001.061 1.06l1.224-1.224a4 4 0 00-5.656-5.656l-3 3a4 4 0 00.225 5.865.75.75 0 00.977-1.138 2.5 2.5 0 01-.142-3.667l3-3z" /><path d="M11.603 7.963a.75.75 0 00-.977 1.138 2.5 2.5 0 01.142 3.667l-3 3a2.5 2.5 0 01-3.536-3.536l1.225-1.224a.75.75 0 00-1.061-1.06l-1.224 1.224a4 4 0 005.656 5.656l3-3a4 4 0 00-.225-5.865z" /></svg>;
+// --- End Icons ---
 
 interface Job {
   id: number;
@@ -9,7 +17,8 @@ interface Job {
   url: string;
   source?: string;
   posted_date?: string;
-  scraped_at?: string;
+  scraped_at?: string; // Ensure this matches JobCard and DashboardPage
+  created_at?: string; // Ensure this matches JobCard and DashboardPage
   relevance_score?: number;
   status?: 'pending' | 'interested' | 'applied' | 'ignored';
 }
@@ -20,23 +29,22 @@ interface JobDetailsModalProps {
   onStatusChange: (jobId: number, newStatus: string) => void;
 }
 
-const JobDetailsModal = ({ job, onClose, onStatusChange }: JobDetailsModalProps) => {
+const JobDetailsModal: React.FC<JobDetailsModalProps> = ({ job, onClose, onStatusChange }) => {
   const [isUpdating, setIsUpdating] = useState(false);
   const [status, setStatus] = useState(job.status || 'pending');
   const [isVisible, setIsVisible] = useState(false);
   
   useEffect(() => {
-    // Animation timing
-    setTimeout(() => {
-      setIsVisible(true);
-    }, 10);
+    setIsVisible(true); // Trigger enter animation
+    document.body.style.overflow = 'hidden'; // Prevent background scroll
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
   }, []);
 
   const handleClose = () => {
     setIsVisible(false);
-    setTimeout(() => {
-      onClose();
-    }, 300); // Match the duration of the transition
+    setTimeout(onClose, 300); // Match animation duration
   };
   
   const formatDate = (dateString?: string) => {
@@ -48,21 +56,26 @@ const JobDetailsModal = ({ job, onClose, onStatusChange }: JobDetailsModalProps)
       const diffTime = Math.abs(now.getTime() - date.getTime());
       const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
       
-      if (diffDays <= 1) return 'Today';
-      if (diffDays <= 2) return 'Yesterday';
+      if (diffDays <= 1 && date.getDate() === now.getDate()) return 'Today';
+      // Simple check for yesterday, might need refinement for edge cases like month/year change
+      const yesterday = new Date(now);
+      yesterday.setDate(now.getDate() - 1);
+      if (diffDays <= 2 && date.toDateString() === yesterday.toDateString()) return 'Yesterday';
+      
       if (diffDays <= 7) return `${diffDays} days ago`;
       
-      return new Date(dateString).toLocaleDateString(undefined, {
+      return date.toLocaleDateString(undefined, { // Use user's locale
         year: 'numeric',
         month: 'short',
         day: 'numeric'
       });
     } catch (error) {
-      return 'Invalid date';
+      console.warn("Failed to parse date string for modal:", dateString, error);
+      return dateString; // Fallback to original string if parsing fails
     }
   };
 
-  const handleStatusChange = async (newStatus: string) => {
+  const handleStatusChangeInternal = async (newStatus: string) => {
     setIsUpdating(true);
     try {
       setStatus(newStatus as any);
@@ -72,258 +85,149 @@ const JobDetailsModal = ({ job, onClose, onStatusChange }: JobDetailsModalProps)
     }
   };
 
-  // Apply to external job link
   const handleApply = () => {
     if (job.url) {
-      window.open(job.url, '_blank');
-      
-      // Optionally change status to 'applied' when user clicks to apply
+      window.open(job.url, '_blank', 'noopener,noreferrer');
       if (status !== 'applied') {
-        handleStatusChange('applied');
+        handleStatusChangeInternal('applied');
       }
     }
   };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'applied':
-        return 'bg-green-100 text-green-800';
-      case 'interested':
-        return 'bg-yellow-100 text-yellow-800';
-      case 'ignored':
-        return 'bg-red-100 text-red-800';
-      default:
-        return 'bg-blue-100 text-blue-800';
-    }
+  
+  const statusTextColors = {
+    pending: 'text-slate-400',
+    interested: 'text-theme-accent-amber',
+    applied: 'text-green-400',
+    ignored: 'text-red-400',
+  };
+  const statusBgColors = {
+    pending: 'bg-slate-700',
+    interested: 'bg-amber-500/20',
+    applied: 'bg-green-500/20',
+    ignored: 'bg-red-500/20',
   };
 
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'applied':
-        return (
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-        );
-      case 'interested':
-        return (
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
-          </svg>
-        );
-      case 'ignored':
-        return (
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-          </svg>
-        );
-      default:
-        return (
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-        );
-    }
-  };
 
   return (
     <div 
-      className="fixed inset-0 z-50 overflow-y-auto" 
+      className="fixed inset-0 z-[100] overflow-y-auto flex items-center justify-center p-4" 
       aria-labelledby="modal-title" 
       role="dialog" 
       aria-modal="true"
     >
-      <div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-        {/* Background overlay with animation */}
-        <div 
-          className={`fixed inset-0 bg-gray-500 transition-opacity duration-300 ease-in-out ${isVisible ? 'bg-opacity-75' : 'bg-opacity-0'}`} 
-          aria-hidden="true" 
-          onClick={handleClose}
-        ></div>
+      {/* Background overlay */}
+      <div 
+        className={`fixed inset-0 bg-black/70 backdrop-blur-sm transition-opacity duration-300 ease-in-out ${isVisible ? 'opacity-100' : 'opacity-0'}`} 
+        aria-hidden="true" 
+        onClick={handleClose}
+      ></div>
 
-        {/* Modal panel with animation */}
-        <div 
-          className={`inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all duration-300 ease-in-out sm:my-8 sm:align-middle sm:max-w-lg sm:w-full ${
-            isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
-          }`}
-        >
-          <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
-            <div className="sm:flex sm:items-start">
-              <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left w-full">
-                {/* Job title and close button */}
-                <div className="flex justify-between items-start">
-                  <h3 className="text-xl leading-6 font-bold text-gray-900" id="modal-title">
-                    {job.title}
-                  </h3>
-                  <button
-                    type="button"
-                    className="bg-white rounded-md text-gray-400 hover:text-gray-500 transition-colors duration-200 focus:outline-none"
-                    onClick={handleClose}
-                  >
-                    <span className="sr-only">Close</span>
-                    <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
-                </div>
-                
-                {/* Company and location */}
-                <div className="flex items-center mt-2">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1.5 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                  </svg>
-                  <span className="text-sm font-medium text-gray-700">{job.company}</span>
-                  <span className="mx-2 text-gray-400">•</span>
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1.5 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                  </svg>
-                  <span className="text-sm text-gray-700">{job.location}</span>
-                </div>
-                
-                {/* Status badge */}
-                <div className="mt-3 flex items-center">
-                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(status)}`}>
-                    {getStatusIcon(status)}
-                    {status === 'pending' ? 'New' : 
-                     status === 'interested' ? 'Interested' : 
-                     status === 'applied' ? 'Applied' : 
-                     status === 'ignored' ? 'Ignored' : 'New'}
+      {/* Modal panel */}
+      <div 
+        className={`relative bg-theme-surface rounded-xl shadow-2xl text-theme-text-primary max-w-4xl w-full max-h-[90vh] flex flex-col overflow-hidden transition-all duration-300 ease-in-out ${
+          isVisible ? 'opacity-100 scale-100' : 'opacity-0 scale-95'
+        }`}
+      >
+        {/* Header */}
+        <div className="flex justify-between items-center p-6 border-b border-slate-700">
+          <h3 className="text-2xl font-display font-semibold" id="modal-title">
+            {job.title}
+          </h3>
+          <button
+            type="button"
+            className="p-1 rounded-full text-slate-400 hover:text-theme-accent-cyan hover:bg-slate-700 transition-colors"
+            onClick={handleClose}
+          >
+            <span className="sr-only">Close</span>
+            <XMarkIcon />
+          </button>
+        </div>
+
+        {/* Content Area (Two Columns) */}
+        <div className="flex-1 flex flex-col md:flex-row overflow-y-hidden">
+          {/* Left Column (Sticky Info & Actions) */}
+          <div className="w-full md:w-1/3 lg:w-2/5 p-6 border-b md:border-b-0 md:border-r border-slate-700 space-y-6 overflow-y-auto">
+            <div>
+              <h4 className="text-sm font-medium text-theme-text-secondary mb-1">Company</h4>
+              <p className="text-lg font-semibold text-theme-text-primary flex items-center"><BuildingOfficeIcon /> {job.company}</p>
+            </div>
+            <div>
+              <h4 className="text-sm font-medium text-theme-text-secondary mb-1">Location</h4>
+              <p className="text-theme-text-primary flex items-center"><MapPinIcon /> {job.location}</p>
+            </div>
+            
+            {job.relevance_score !== undefined && (
+              <div>
+                <h4 className="text-sm font-medium text-theme-text-secondary mb-1">Match Score</h4>
+                <div className="flex items-center">
+                  <div className="w-full bg-slate-700 rounded-full h-2.5">
+                    <div 
+                      className={`h-2.5 rounded-full ${job.relevance_score > 0.75 ? 'bg-theme-accent-cyan' : job.relevance_score > 0.5 ? 'bg-theme-accent-amber' : 'bg-slate-500'}`}
+                      style={{ width: `${(job.relevance_score * 100).toFixed(0)}%` }}
+                    ></div>
+                  </div>
+                  <span className={`ml-3 font-semibold ${job.relevance_score > 0.75 ? 'text-theme-accent-cyan' : job.relevance_score > 0.5 ? 'text-theme-accent-amber' : 'text-slate-400'}`}>
+                    {(job.relevance_score * 100).toFixed(0)}%
                   </span>
                 </div>
-                
-                {/* Match score */}
-                {job.relevance_score !== undefined && (
-                  <div className="mt-3">
-                    <div className="flex items-center">
-                      <span className="text-sm font-medium text-gray-700 mr-2">Match Score:</span>
-                      <div className="flex-grow h-2.5 bg-gray-200 rounded-full max-w-[200px]">
-                        <div 
-                          className="h-2.5 rounded-full" 
-                          style={{
-                            width: `${(job.relevance_score * 100).toFixed(0)}%`,
-                            backgroundColor: job.relevance_score > 0.8 ? 'rgb(16, 185, 129)' : 
-                              job.relevance_score > 0.6 ? 'rgb(245, 158, 11)' : 
-                              'rgb(239, 68, 68)'
-                          }}
-                        ></div>
-                      </div>
-                      <span className="ml-2 text-sm font-medium text-gray-700">{(job.relevance_score * 100).toFixed(0)}%</span>
-                    </div>
-                  </div>
-                )}
-                
-                {/* Other details */}
-                <div className="mt-4 bg-gray-50 p-4 rounded-lg">
-                  <div className="grid grid-cols-2 gap-3 text-sm">
-                    <div className="flex items-center">
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1.5 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
-                      </svg>
-                      <span className="font-medium text-gray-700">Source:</span>{' '}
-                      <span className="ml-1 text-gray-600">{job.source || 'Not available'}</span>
-                    </div>
-                    <div className="flex items-center">
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1.5 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                      </svg>
-                      <span className="font-medium text-gray-700">Posted:</span>{' '}
-                      <span className="ml-1 text-gray-600">{formatDate(job.posted_date)}</span>
-                    </div>
-                    <div className="flex items-center">
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1.5 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 21h7a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                      </svg>
-                      <span className="font-medium text-gray-700">Found:</span>{' '}
-                      <span className="ml-1 text-gray-600">{formatDate(job.scraped_at)}</span>
-                    </div>
-                    {job.url && (
-                      <div className="flex items-center col-span-2">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1.5 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
-                        </svg>
-                        <span className="font-medium text-gray-700">URL:</span>{' '}
-                        <a 
-                          href={job.url} 
-                          target="_blank" 
-                          rel="noopener noreferrer" 
-                          className="ml-1 text-blue-600 hover:text-blue-800 hover:underline truncate max-w-[200px] inline-block"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          {job.url}
-                        </a>
-                      </div>
-                    )}
-                  </div>
-                </div>
-                
-                {/* Description */}
-                <div className="mt-5">
-                  <h4 className="text-md font-medium text-gray-900 flex items-center">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1.5 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
-                    Job Description
-                  </h4>
-                  <div className="mt-3 text-sm text-gray-600 max-h-60 overflow-y-auto bg-white border border-gray-200 rounded-md p-4 shadow-inner">
-                    <p className="whitespace-pre-line">{job.description}</p>
-                  </div>
-                </div>
               </div>
+            )}
+
+            <div>
+              <h4 className="text-sm font-medium text-theme-text-secondary mb-1">Status</h4>
+              <select
+                value={status}
+                onChange={(e) => handleStatusChangeInternal(e.target.value)}
+                disabled={isUpdating}
+                className={`w-full text-sm font-medium py-2 px-3 rounded-md border border-slate-600 focus:ring-1 focus:ring-theme-accent-cyan focus:border-theme-accent-cyan transition-colors ${statusTextColors[status]} ${statusBgColors[status]} bg-theme-bg`}
+              >
+                <option value="pending">Pending</option>
+                <option value="interested">Interested</option>
+                <option value="applied">Applied</option>
+                <option value="ignored">Ignored</option>
+              </select>
             </div>
+
+            {job.posted_date && (
+              <div>
+                <h4 className="text-sm font-medium text-theme-text-secondary mb-1">Posted</h4>
+                <p className="text-theme-text-primary flex items-center"><CalendarDaysIcon /> {formatDate(job.posted_date)}</p>
+              </div>
+            )}
+            {job.source && (
+              <div>
+                <h4 className="text-sm font-medium text-theme-text-secondary mb-1">Source</h4>
+                <p className="text-theme-text-primary">{job.source}</p>
+              </div>
+            )}
+             {job.url && (
+                <div>
+                    <h4 className="text-sm font-medium text-theme-text-secondary mb-1">Original Post</h4>
+                    <a 
+                        href={job.url} target="_blank" rel="noopener noreferrer"
+                        className="inline-flex items-center text-theme-accent-cyan hover:text-theme-accent-cyan-darker hover:underline break-all"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <LinkIcon /> View Original
+                    </a>
+                </div>
+            )}
+
+            <button
+              type="button"
+              className="w-full mt-auto inline-flex items-center justify-center px-6 py-3 border border-transparent text-base font-semibold rounded-lg shadow-md text-theme-bg bg-theme-accent-cyan hover:bg-theme-accent-cyan-darker focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-theme-surface focus:ring-theme-accent-cyan transition-colors"
+              onClick={handleApply}
+            >
+              Apply Now
+            </button>
           </div>
-          
-          {/* Actions */}
-          <div className="bg-gray-50 px-4 py-4 sm:px-6 sm:flex sm:flex-row">
-            <div className="sm:flex-1 flex items-center">
-              <label htmlFor="status-select" className="sr-only">Change status</label>
-              <div className="relative rounded-md shadow-sm w-full sm:max-w-xs">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  {getStatusIcon(status)}
-                </div>
-                <select
-                  id="status-select"
-                  value={status}
-                  onChange={(e) => handleStatusChange(e.target.value)}
-                  disabled={isUpdating}
-                  className="block w-full pl-10 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md transition-colors duration-200"
-                >
-                  <option value="pending">Mark as New</option>
-                  <option value="interested">Mark as Interested</option>
-                  <option value="applied">Mark as Applied</option>
-                  <option value="ignored">Ignore</option>
-                </select>
-                {isUpdating && (
-                  <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-                    <svg className="animate-spin h-4 w-4 text-gray-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                  </div>
-                )}
-              </div>
-            </div>
-            <div className="mt-3 sm:mt-0 sm:ml-3 flex flex-col-reverse sm:flex-row">
-              <button
-                type="button"
-                className="mb-2 sm:mb-0 sm:mr-2 inline-flex justify-center items-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:text-sm transition-colors duration-200"
-                onClick={handleClose}
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-                Close
-              </button>
-              <button
-                type="button"
-                className="inline-flex justify-center items-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-700 text-base font-medium text-white hover:from-blue-700 hover:to-indigo-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:text-sm transition-all duration-200"
-                onClick={handleApply}
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                </svg>
-                Apply Now
-              </button>
+
+          {/* Right Column (Scrollable Description) */}
+          <div className="flex-1 p-6 overflow-y-auto">
+            <h4 className="font-display text-xl font-semibold text-theme-text-primary mb-3">Job Description</h4>
+            <div className="prose prose-sm prose-invert max-w-none text-theme-text-secondary leading-relaxed whitespace-pre-line">
+              {/* Using prose classes for nice typography if description is HTML/Markdown, or just use <p> */}
+              {job.description || "No description available."}
             </div>
           </div>
         </div>

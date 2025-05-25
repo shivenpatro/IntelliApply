@@ -1,5 +1,5 @@
 import os
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, BackgroundTasks, Response
 from sqlalchemy.orm import Session
 import shutil
 from typing import List
@@ -122,6 +122,26 @@ async def add_skills(skills: List[SkillCreate], current_user: User = Depends(get
         db.refresh(skill)
 
     return new_skills
+
+# Moved /skills/all before /skills/{skill_id} to ensure correct route matching
+@router.delete("/skills/all", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_all_skills(current_user: User = Depends(get_current_active_user), db: Session = Depends(get_db)):
+    profile = db.query(ProfileModel).filter(ProfileModel.id == current_user.supabase_id).first()
+    if not profile:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Profile not found")
+
+    try:
+        num_deleted = db.query(SkillModel).filter(SkillModel.profile_id == profile.id).delete(synchronize_session=False)
+        db.commit()
+        logger.info(f"Deleted {num_deleted} skills for profile_id: {profile.id}")
+    except HTTPException: # Re-raise HTTPExceptions directly
+        raise
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Error deleting all skills for profile_id {profile.id}: {e}", exc_info=True)
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Could not delete all skills")
+    
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 @router.delete("/skills/{skill_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_skill(skill_id: int, current_user: User = Depends(get_current_active_user), db: Session = Depends(get_db)):

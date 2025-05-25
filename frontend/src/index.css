@@ -1,20 +1,43 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Manrope:wght@300;400;500;600;700;800&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+@layer base {
+  body {
+    @apply bg-theme-bg text-theme-text-primary font-sans antialiased;
+    /* Default background: #0A192F, Default text: #CCD6F6, Default font: Inter */
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-display text-theme-text-primary; /* Manrope for headings */
+  }
+
+  /* Custom scrollbar for a more modern feel - optional */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  ::-webkit-scrollbar-track {
+    @apply bg-theme-surface;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply bg-slate-600 rounded-md;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-slate-500;
+  }
 }
 
-body {
-  @apply bg-gray-50 text-gray-900 min-h-screen;
+/* You can define custom component styles here if needed, for example: */
+/*
+@layer components {
+  .btn-primary {
+    @apply py-2 px-4 bg-theme-accent-cyan text-theme-bg font-semibold rounded-lg shadow-md hover:bg-theme-accent-cyan-darker transition-colors;
+  }
 }
-
-.btn-primary {
-  @apply py-2 px-4 bg-blue-600 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-opacity-75;
-}
+*/
 
 .btn-secondary {
   @apply py-2 px-4 bg-gray-200 text-gray-800 font-semibold rounded-lg shadow-md hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-opacity-75;
