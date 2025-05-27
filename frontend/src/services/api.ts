@@ -76,21 +76,29 @@ axiosInstance.interceptors.response.use(
   },
   async (error) => {
     if (error.response) {
+      // Log the error regardless
+      console.error(`API Error: Status ${error.response.status}`, error.response.data);
+
+      // For 401 or 403, it's important to reject the promise so the UI can react
+      // (e.g., redirect to login, show specific auth error message)
+      // The previous behavior of resolving with mocked data would hide these critical errors.
       if (error.response.status === 401 || error.response.status === 403) {
-        console.error(`Authentication error (${error.response.status}) - ignoring since auth is bypassed`);
-        console.error('Error details:', error.response.data);
-        return Promise.resolve({
-          data: [],
-          status: 200,
-          statusText: 'OK (Mocked)',
-          headers: {},
-          config: error.config
-        });
+        // Optionally, you could add logic here to attempt a token refresh if you have one,
+        // or trigger a logout via AuthContext if the token is definitively invalid.
+        // For now, just rejecting allows the calling code to handle it.
+        console.error(`Authentication/Authorization error (${error.response.status}). The request was not successful.`);
       } else if (error.response.status === 500) {
-        console.error('Server error:', error.response.data);
+        console.error('Server error (500):', error.response.data);
       }
+      // For all errors with a response, we should reject so the UI can handle it.
+    } else if (error.request) {
+      // The request was made but no response was received (e.g., network error, backend down)
+      console.error('Network error or no response from server:', error.request);
+    } else {
+      // Something happened in setting up the request that triggered an Error
+      console.error('Error setting up API request:', error.message);
     }
-    return Promise.reject(error);
+    return Promise.reject(error); // Reject all errors to be handled by the calling function's catch block
   }
 );
 
