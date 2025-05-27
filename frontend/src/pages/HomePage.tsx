@@ -1,6 +1,8 @@
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useState, useEffect } from 'react';
+import SplineScene from '../components/common/SplineScene'; // Import SplineScene
+import { Spotlight } from '../components/common/Spotlight'; // Import Spotlight
 
 // Placeholder Icons (Ideally, import from @heroicons/react or similar)
 const DocumentTextIcon = () => <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-8 h-8"><path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" /></svg>;
@@ -27,15 +29,28 @@ const HomePage = () => {
     <div className="flex flex-col min-h-screen bg-theme-bg text-theme-text-primary">
       {/* Hero Section */}
       <section className={`relative min-h-screen flex flex-col justify-center items-center text-center px-4 sm:px-6 lg:px-8 overflow-hidden ${sectionBaseClass} ${isVisible ? sectionVisibleClass : sectionHiddenClass}`}>
-        {/* Optional: Subtle animated background. Could integrate your BackgroundScene.tsx here */}
-        {/* <div className="absolute inset-0 z-0"> <BackgroundScene /> </div> */}
-        <div className="absolute inset-0 bg-gradient-to-br from-theme-bg via-theme-surface to-theme-bg opacity-50 z-0"></div>
+        <Spotlight
+          className="absolute -top-1/2 left-1/2 transform -translate-x-1/2 md:-top-1/3" // Adjusted positioning
+          fill="rgba(100, 255, 218, 0.1)" // theme-accent-cyan (#64FFDA) with low opacity
+          size={1000} // Larger spotlight for a broader effect
+          opacity={0.1} // Subtle opacity
+          blurAmount="blur-3xl" // Generous blur
+        />
+        
+        {/* Spline Scene as a dynamic background */}
+        <div className="absolute inset-0 z-[-1]"> {/* Ensure Spline is behind text but above solid bg */}
+          <SplineScene
+            sceneUrl="https://prod.spline.design/kZDDjO5HuC9GJUM2/scene.splinecode" // Placeholder - replace with your themed scene
+            className="w-full h-full opacity-20 md:opacity-30" // Keep it subtle
+          />
+          {/* Optional: A very subtle gradient overlay on top of Spline for text legibility */}
+          <div className="absolute inset-0 bg-gradient-to-b from-theme-bg/30 via-transparent to-theme-bg/70"></div>
+        </div>
 
-
-        <div className="relative z-10">
-          {/* Optional: Integrate your FloatingLogo.tsx here */}
+        <div className="relative z-10 max-w-4xl"> {/* Ensure text content is above Spline/Spotlight */}
+          {/* Optional: Integrate your FloatingLogo.tsx here if it fits the new theme */}
           {/* <div className="mb-8"> <FloatingLogo /> </div> */}
-          <h1 className="font-display text-5xl font-extrabold sm:text-6xl md:text-7xl">
+          <h1 className="font-display text-5xl font-extrabold sm:text-6xl md:text-7xl text-theme-text-primary">
             <span className="block">IntelliApply</span>
             <span className="block text-theme-accent-cyan mt-2 sm:mt-4">Apply Smarter, Not Harder.</span>
           </h1>
