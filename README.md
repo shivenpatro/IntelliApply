@@ -99,4 +99,4 @@ This project uses Supabase for authentication. See [SUPABASE_AUTH_SETUP.md](SUPA
 
 ## License
 
-This project is created for hackathon purposes.
+MIT License
