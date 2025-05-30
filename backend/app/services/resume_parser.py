@@ -5,19 +5,23 @@ from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError # Import SQLAlchemyError
 import logging
 from datetime import datetime # For date parsing if needed
+import io # For BytesIO for in-memory file handling
 
 from app.db.models import Profile, Skill, Experience
 from app.core.config import settings # To get API_KEYs
+from app.db.supabase import supabase # Import the Supabase client
 
 # Setup logger for this module
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO) # Ensure logs are visible
 
-async def parse_resume_with_affinda(file_path: str, profile_id: str, db: Session):
+RESUME_BUCKET_NAME = "resume" # Matching the bucket name you created in Supabase
+
+async def parse_resume_with_affinda(storage_file_path: str, profile_id: str, db: Session): # Renamed file_path
     """
-    Parse a resume using Affinda API and update the profile in the database.
+    Parse a resume from Supabase Storage using Affinda API and update the profile.
     """
-    logger.info(f"Starting resume parsing with Affinda for profile_id: {profile_id}, file: {file_path}")
+    logger.info(f"Starting resume parsing with Affinda for profile_id: {profile_id}, storage_path: {storage_file_path}")
 
     if not settings.AFFINDA_API_KEY:
         logger.error("AFFINDA_API_KEY not configured.")
@@ -32,26 +36,30 @@ async def parse_resume_with_affinda(file_path: str, profile_id: str, db: Session
         'wait': 'true' # Wait for parsing to complete
     }
     
-    files_to_upload = {}
+    file_bytes = None
     try:
-        # Use the original filename for Affinda
-        original_filename = os.path.basename(file_path)
-        files_to_upload['file'] = (original_filename, open(file_path, 'rb'))
-    except FileNotFoundError:
-        logger.error(f"Resume file not found at {file_path} for profile {profile_id}")
-        return
+        logger.info(f"Downloading resume from Supabase Storage: {storage_file_path}")
+        file_bytes = supabase.storage.from_(RESUME_BUCKET_NAME).download(path=storage_file_path)
+        if not file_bytes:
+            logger.error(f"Failed to download resume from Supabase Storage (empty response): {storage_file_path} for profile {profile_id}")
+            return
+        logger.info(f"Successfully downloaded {len(file_bytes)} bytes from Supabase Storage for profile {profile_id}")
     except Exception as e:
-        logger.error(f"Error opening resume file {file_path} for profile {profile_id}: {e}")
+        logger.error(f"Error downloading resume from Supabase Storage {storage_file_path} for profile {profile_id}: {e}", exc_info=True)
         return
+
+    # Prepare file for Affinda API using BytesIO
+    original_filename = os.path.basename(storage_file_path) # e.g., "resume.pdf"
+    files_to_upload = {'file': (original_filename, io.BytesIO(file_bytes), 'application/octet-stream')} # Provide content type
 
     affinda_response_json = None
     try:
-        logger.info(f"Sending request to Affinda API for profile {profile_id}...")
+        logger.info(f"Sending request to Affinda API for profile {profile_id} with in-memory file...")
         response = requests.post(
             "https://api.affinda.com/v2/resumes",
             headers=headers,
             data=form_data,
-            files=files_to_upload
+            files=files_to_upload # This now sends the in-memory file
         )
         response.raise_for_status()  # Raise an exception for HTTP errors (4xx or 5xx)
         affinda_response_json = response.json()
@@ -66,9 +74,7 @@ async def parse_resume_with_affinda(file_path: str, profile_id: str, db: Session
         logger.error(f"Failed to decode JSON response from Affinda for profile {profile_id}: {e}")
         logger.error(f"Affinda Raw Response: {response.text if 'response' in locals() else 'N/A'}")
         return
-    finally:
-        if 'file' in files_to_upload and files_to_upload['file'] and hasattr(files_to_upload['file'][1], 'close'):
-            files_to_upload['file'][1].close()
+    # No need for finally block to close file as io.BytesIO manages memory
 
     if not affinda_response_json or 'data' not in affinda_response_json:
         logger.warning(f"No 'data' field in Affinda response for profile {profile_id}. Aborting update. Full response: {json.dumps(affinda_response_json, indent=2)}")
@@ -158,11 +164,16 @@ async def parse_resume_with_affinda(file_path: str, profile_id: str, db: Session
                         return None
                     return None
 
+                location_info = exp_entry.get("location") # This could be None or a dict
+                location_formatted = None
+                if isinstance(location_info, dict):
+                    location_formatted = location_info.get("formatted")
+
                 new_experience = Experience(
                     profile_id=profile_id,
                     title=exp_entry.get("jobTitle"),
                     company=exp_entry.get("organization"),
-                    location=exp_entry.get("location", {}).get("formatted"), # Affinda uses 'formatted'
+                    location=location_formatted, # Use the safely extracted value
                     start_date=parse_date_flexible(start_date_str),
                     end_date=parse_date_flexible(end_date_str),
                     description=exp_entry.get("jobDescription")
@@ -184,15 +195,15 @@ async def parse_resume_with_affinda(file_path: str, profile_id: str, db: Session
 
 # Main parse_resume function to be called by background tasks
 # This will now call the Affinda parser.
-async def parse_resume(file_path: str, profile_id: str, db: Session):
+async def parse_resume(storage_file_path: str, profile_id: str, db: Session): # Renamed file_path
     # If Eden AI key is present and preferred, could add logic here to choose.
     # For now, defaulting to Affinda if its key is present.
     if settings.AFFINDA_API_KEY:
-        await parse_resume_with_affinda(file_path, profile_id, db)
+        await parse_resume_with_affinda(storage_file_path, profile_id, db)
     elif settings.EDEN_AI_API_KEY: # Fallback to Eden AI if Affinda key is missing but Eden AI is present
         logger.warning("AFFINDA_API_KEY not found, attempting to use EDEN_AI_API_KEY as fallback.")
         # Placeholder for parse_resume_with_eden_ai if it were to be kept
-        # await parse_resume_with_eden_ai(file_path, profile_id, db) 
+        # await parse_resume_with_eden_ai(storage_file_path, profile_id, db) 
         logger.error("Eden AI parsing is currently disabled due to credit issues. Affinda key was also not found.")
     else:
         logger.error("No resume parsing API key configured (Affinda or Eden AI). Cannot parse resume.")
