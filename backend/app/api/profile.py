@@ -1,9 +1,10 @@
 import os
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, BackgroundTasks, Response
 from sqlalchemy.orm import Session
-import shutil
+# import shutil # No longer needed for local file saving
 from typing import List
 import logging # Import logging
+from app.db.supabase import supabase # Import the Supabase client
 
 # Setup logger for this module
 logger = logging.getLogger(__name__)
@@ -17,8 +18,12 @@ from app.services.resume_parser import parse_resume
 
 router = APIRouter()
 
-# Ensure upload directory exists
-os.makedirs(settings.UPLOAD_DIRECTORY, exist_ok=True)
+# Ensure upload directory exists (can be removed if UPLOAD_DIRECTORY is no longer used for anything else)
+# For now, let's assume it might be used elsewhere or for temporary local processing if needed.
+# If strictly only Supabase storage is used, this line and UPLOAD_DIRECTORY setting can be removed.
+os.makedirs(settings.UPLOAD_DIRECTORY, exist_ok=True) 
+
+RESUME_BUCKET_NAME = "resume" # Matching the bucket name you created
 
 @router.get("", response_model=Profile)
 async def get_profile(current_user: User = Depends(get_current_active_user), db: Session = Depends(get_db)):
@@ -62,33 +67,40 @@ async def upload_resume(background_tasks: BackgroundTasks, file: UploadFile = Fi
             detail=f"File must be one of: {', '.join(settings.ALLOWED_EXTENSIONS)}"
         )
 
-    # Create user directory using their Supabase UUID for uniqueness
-    user_upload_dir = os.path.join(settings.UPLOAD_DIRECTORY, str(current_user.supabase_id))
-    os.makedirs(user_upload_dir, exist_ok=True)
+    file_content = await file.read()
+    # Sanitize filename or use a consistent name like 'resume.ext' prefixed by user ID
+    # Using user's supabase_id as a "folder" and a generic name for the resume file
+    storage_file_path = f"{str(current_user.supabase_id)}/resume.{file_extension}"
 
-    # Save the file
-    file_path = os.path.join(user_upload_dir, f"resume.{file_extension}")
-    with open(file_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
+    try:
+        logger.info(f"Attempting to upload resume to Supabase Storage at path: {storage_file_path}")
+        # The supabase-py library's upload method expects bytes.
+        # file.file is a SpooledTemporaryFile, file_content has its bytes.
+        # We use upsert=True to overwrite if the user uploads a new resume.
+        upload_response = supabase.storage.from_(RESUME_BUCKET_NAME).upload(
+            path=storage_file_path,
+            file=file_content,
+            file_options={"content-type": file.content_type or "application/octet-stream", "upsert": "true"}
+        )
+        logger.info(f"Supabase storage upload response: {upload_response}")
 
-    # Update the profile with the resume path
-    # Fetch profile using supabase_id
+    except Exception as e:
+        logger.error(f"Failed to upload resume to Supabase Storage for user {current_user.supabase_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Could not upload resume to cloud storage.")
+
+    # Update the profile with the Supabase Storage path
     profile = db.query(ProfileModel).filter(ProfileModel.id == current_user.supabase_id).first()
     if not profile:
-        # This case should ideally be handled by the trigger or initial auth, but as a fallback:
-        # profile = ProfileModel(id=current_user.supabase_id) # Create profile if missing
-        # db.add(profile)
-        # For now, raise error if profile is missing after auth
-         raise HTTPException(status_code=404, detail="Profile not found for authenticated user")
+         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Profile not found for authenticated user")
 
-
-    profile.resume_path = file_path
+    profile.resume_path = storage_file_path # Store the path within Supabase Storage
     db.commit()
+    db.refresh(profile) # Refresh to get any DB-side updates if necessary
 
-    # Trigger resume parsing in the background
-    background_tasks.add_task(parse_resume, file_path, profile.id, db)
+    # Trigger resume parsing in the background, passing the Supabase Storage path
+    background_tasks.add_task(parse_resume, storage_file_path, profile.id, db)
 
-    return {"success": True, "message": "Resume uploaded and processing started"}
+    return {"success": True, "message": "Resume uploaded to cloud and processing started"}
 
 @router.post("/skills", response_model=List[Skill])
 async def add_skills(skills: List[SkillCreate], current_user: User = Depends(get_current_active_user), db: Session = Depends(get_db)):
