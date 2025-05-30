@@ -1,6 +1,7 @@
 # IntelliApply: Apply smarter, not harder.
 
 ## Project Overview
+![image](https://github.com/user-attachments/assets/1760cac9-353c-460f-8ce9-ccc8d263eafd)
 
 IntelliApply is a full-stack web application designed to automate and personalize the job search process. It takes a user's resume and preferences, scrapes job boards, uses AI to find and rank the most relevant job postings, and presents them to the user on a dashboard.
 
