@@ -23,11 +23,11 @@ EXPOSE 80
 
 # Define environment variable for the port (Render often sets this, Uvicorn will use it)
 # Default to 80 if not set by the platform.
-ENV PORT 80
+# ENV PORT 80 # Koyeb will provide the PORT environment variable.
 
 # Run uvicorn when the container launches.
 # Bind to 0.0.0.0 to be accessible from outside the container.
-# Use $PORT environment variable.
+# Use the PORT environment variable provided by the platform (e.g., Koyeb), default to 8080 if not set.
 # --workers 1 is a good default for many PaaS free/hobby tiers.
 # --forwarded-allow-ips='*' is important if running behind a reverse proxy (common on PaaS)
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "80", "--forwarded-allow-ips", "*"]
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "${PORT:-8080}", "--forwarded-allow-ips", "*"]
