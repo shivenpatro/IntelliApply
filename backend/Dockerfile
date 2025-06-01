@@ -30,4 +30,5 @@ EXPOSE 80
 # Use the PORT environment variable provided by the platform (e.g., Koyeb), default to 8080 if not set.
 # --workers 1 is a good default for many PaaS free/hobby tiers.
 # --forwarded-allow-ips='*' is important if running behind a reverse proxy (common on PaaS)
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "${PORT:-8080}", "--forwarded-allow-ips", "*"]
+# Using sh -c to ensure environment variable substitution for $PORT
+CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8080} --forwarded-allow-ips '*'"]
