@@ -32,6 +32,7 @@ backend/.env
 .env.development.local
 .env.test.local
 .env.production.local
+frontend/.env.production
 
 # IDE files
 .idea/
