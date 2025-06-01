@@ -1,7 +1,10 @@
 # IntelliApply: Apply smarter, not harder.
 
+Live Website Link:- https://intelli-apply.vercel.app/
 ## Project Overview
 ![image](https://github.com/user-attachments/assets/1760cac9-353c-460f-8ce9-ccc8d263eafd)
+![image](https://github.com/user-attachments/assets/529232e7-bfbd-4d1c-b471-e9c437533792)
+
 
 IntelliApply is a full-stack web application designed to automate and personalize the job search process. It takes a user's resume and preferences, scrapes job boards, uses AI to find and rank the most relevant job postings, and presents them to the user on a dashboard.
 
@@ -12,6 +15,9 @@ Job seekers waste excessive time manually searching multiple job boards, filteri
 ### Core Solution
 
 IntelliApply acts as an AI co-pilot. It parses user profiles/resumes, automatically discovers relevant jobs via web scraping, uses AI (NLP/ML) for accurate profile-to-job matching beyond simple keywords, and displays prioritized results, significantly reducing manual effort.
+
+![image](https://github.com/user-attachments/assets/2927ca97-f01c-4d95-a64f-b81ed395e4b3)
+
 
 ### Key Features (MVP)
 
