@@ -7,6 +7,12 @@ WORKDIR /app
 # Copy the requirements file into the container at /app
 COPY requirements.txt .
 
+# Install system dependencies required for building Python packages
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc \
+    libpq-dev \
+    && rm -rf /var/lib/apt/lists/*
+
 # Install any needed packages specified in requirements.txt
 # Use --no-cache-dir to reduce image size
 # Use --trusted-host pypi.python.org to avoid SSL issues in some environments
