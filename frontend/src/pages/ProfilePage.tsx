@@ -85,9 +85,18 @@ const ProfilePage = () => {
           console.log('[ProfilePage] Refetching profile data after resume upload delay...');
           const profileData = await profileAPI.getProfile();
           setProfile(profileData);
-          setAccountInfo(prev => ({ ...prev, first_name: profileData.first_name || '', last_name: profileData.last_name || '' }));
+          // NEW: Update account info in backend if name was extracted
+          if (profileData.first_name || profileData.last_name) {
+            console.log('[ProfilePage] Saving extracted name to backend...');
+            await profileAPI.updatePreferences({
+              first_name: profileData.first_name || '',
+              last_name: profileData.last_name || ''
+            });
+            setAccountInfo(prev => ({ ...prev, first_name: profileData.first_name || '', last_name: profileData.last_name || '' }));
+            setAccountInfoSuccess('Name updated from resume!'); // Provide feedback
+          }
+
           if (profileData.skills) setActiveSkills(profileData.skills);
-          // Update success message after fetching potentially parsed data
           setUploadSuccess(`Resume processed. Name: ${profileData.first_name || ''} ${profileData.last_name || ''}. Skills found: ${profileData.skills?.length || 0}.`);
         } catch (fetchErr: any) {
           console.error('[ProfilePage] Error fetching profile after resume upload delay:', fetchErr);
