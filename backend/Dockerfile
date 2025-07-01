@@ -16,7 +16,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Install any needed packages specified in requirements.txt
 # Use --no-cache-dir to reduce image size
 # Use --trusted-host pypi.python.org to avoid SSL issues in some environments
-RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir --upgrade setuptools wheel && \
     pip install --no-cache-dir --trusted-host pypi.python.org -r requirements.txt
 
 # Copy the rest of the backend application code into the container at /app
