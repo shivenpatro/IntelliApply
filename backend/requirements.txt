@@ -13,7 +13,6 @@ numpy==1.26.0
 scikit-learn==1.7.0
 pandas==1.5.2
 pyyaml==6.0.2
-logging==0.4.9.6
 postgrest==0.10.6
 supabase==1.0.3
 docling==1.1.0
