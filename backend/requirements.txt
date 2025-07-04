@@ -15,4 +15,4 @@ pandas==1.5.2
 pyyaml==6.0.2
 postgrest==0.16.11
 supabase==2.4.5
-docling==1.1.0
+docling==2.39.0
