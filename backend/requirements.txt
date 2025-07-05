@@ -11,7 +11,7 @@ aiohttp==3.8.3
 beautifulsoup4==4.12.3
 numpy==1.26.0
 scikit-learn==1.7.0
-pandas==1.5.2
+pandas==2.1.4
 pyyaml==6.0.2
 postgrest==0.16.11
 supabase==2.4.5
