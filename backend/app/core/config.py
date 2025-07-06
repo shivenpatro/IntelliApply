@@ -73,6 +73,9 @@ class Settings(BaseSettings):
     # Data Maintenance
     JOB_POSTING_RETENTION_DAYS: Optional[int] = int(os.getenv("JOB_POSTING_RETENTION_DAYS", "30"))
 
+    # Gemini API Key
+    GEMINI_API_KEY: Optional[str] = os.getenv("GEMINI_API_KEY")
+
 
     class Config:
         env_file = ".env"
