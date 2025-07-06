@@ -18,3 +18,4 @@ supabase==2.4.5
 docling==2.39.0
 docling-core==2.39.0
 email-validator==2.2.0
+email-validator==2.2.0
