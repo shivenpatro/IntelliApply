@@ -23,7 +23,7 @@ class UserInDB(UserBase):
     created_at: datetime
     
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 class User(UserInDB):
     pass
@@ -61,7 +61,7 @@ class Skill(SkillBase):
     profile_id: uuid.UUID # Profile ID is UUID
     
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 class ExperienceBase(BaseModel):
     title: str
@@ -79,7 +79,7 @@ class Experience(ExperienceBase):
     profile_id: uuid.UUID # Profile ID is UUID
     
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 class Profile(ProfileBase):
     id: uuid.UUID # Profile ID is UUID
@@ -91,7 +91,7 @@ class Profile(ProfileBase):
     updated_at: Optional[datetime] = None
     
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 # Job schemas
 class JobStatus(str, Enum):
@@ -118,7 +118,7 @@ class Job(JobBase):
     scraped_at: datetime
     
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 class UserJobMatchBase(BaseModel):
     relevance_score: float = Field(..., ge=0.0, le=1.0)
@@ -138,14 +138,14 @@ class UserJobMatch(UserJobMatchBase):
     updated_at: Optional[datetime] = None
     
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 class JobWithMatch(Job):
     relevance_score: float
     status: JobStatus
     
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 # Resume upload schema
 class ResumeUploadResponse(BaseModel):
