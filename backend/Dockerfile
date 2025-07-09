@@ -26,7 +26,7 @@ COPY . .
 
 # Make port 80 available to the world outside this container
 # (Render will map this to its own $PORT, which Uvicorn will use)
-EXPOSE 80
+EXPOSE 8080
 
 # Define environment variable for the port (Render often sets this, Uvicorn will use it)
 # Default to 80 if not set by the platform.
