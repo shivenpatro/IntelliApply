@@ -14,6 +14,8 @@ postgrest==0.16.11
 supabase==2.4.5
 email-validator==2.2.0
 
+docling==2.39.0
+docling-core==2.39.0
 google-generativeai==0.8.5
 
 pydantic-settings==2.10.1

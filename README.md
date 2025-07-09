@@ -35,7 +35,7 @@ IntelliApply acts as an AI co-pilot. It parses user profiles/resumes, automatica
 - **Backend:** Python with FastAPI
 - **Database:** PostgreSQL
 - **Authentication:** Supabase Auth
-- **Resume Parsing:** PyPDF2/python-docx, spaCy , and IBM-Docling.
+- **Resume Parsing:** PyPDF2/python-docx, spaCy
 - **Web Scraping:** BeautifulSoup4, requests
 - **AI Matching:** scikit-learn for TF-IDF and Cosine Similarity
 
