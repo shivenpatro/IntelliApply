@@ -1,6 +1,6 @@
 # IntelliApply: Apply smarter, not harder.
 
-Live Website Link:- https://intelli-apply.vercel.app/(backend is down for now because of Render free tier 512mb is not enough for the docling packages)
+Live Website Link:- https://intelli-apply.vercel.app/ (backend is down for now because of Render free tier 512mb is not enough for the docling packages)
 
 ## Project Overview
 ![image](https://github.com/user-attachments/assets/1760cac9-353c-460f-8ce9-ccc8d263eafd)
