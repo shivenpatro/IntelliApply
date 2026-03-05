@@ -1,14 +1,15 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
 import { useLoadingState } from '../hooks/useLoadingState';
-import { supabase } from '../lib/supabase';
+
+const NEON_AUTH_URL =
+  import.meta.env.VITE_NEON_AUTH_URL ||
+  'https://ep-green-glade-ajuf7urf.neonauth.c-3.us-east-2.aws.neon.tech/neondb/auth';
 
 const ForgotPasswordPage = () => {
   const [email, setEmail] = useState('');
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const { clearError: clearAuthContextError } = useAuth();
   const [loading, setLoading, resetLoading] = useLoadingState(false, 15000);
 
   useEffect(() => {
@@ -22,14 +23,20 @@ const ForgotPasswordPage = () => {
     setLoading(true);
 
     try {
-      const redirectTo = `${window.location.origin}/update-password`;
-      const { error: supabaseError } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: redirectTo,
+      const response = await fetch(`${NEON_AUTH_URL}/api/auth/forget-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email,
+          redirectTo: `${window.location.origin}/update-password`,
+        }),
       });
 
-      if (supabaseError) {
-        throw supabaseError;
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data?.message || 'Failed to send reset email. Please try again.');
       }
+
       setMessage('If an account exists for this email, a password reset link has been sent. Please check your inbox (and spam folder).');
     } catch (err: any) {
       console.error('Password reset error:', err);
@@ -38,11 +45,6 @@ const ForgotPasswordPage = () => {
       setLoading(false);
     }
   };
-  
-  const handleClearLocalError = () => {
-    setError(null);
-    clearAuthContextError(); 
-  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-theme-bg py-12 px-4 sm:px-6 lg:px-8">
@@ -68,32 +70,23 @@ const ForgotPasswordPage = () => {
           </div>
         )}
 
-        {!message && ( // Only show form if no success message is displayed
+        {!message && (
           <form className="space-y-6" onSubmit={handleSubmit}>
             <div>
               <label htmlFor="email-address" className="block text-sm font-medium text-theme-text-secondary mb-1">
                 Email address
               </label>
               <input
-                id="email-address"
-                name="email"
-                type="email"
-                autoComplete="email"
-                required
+                id="email-address" name="email" type="email" autoComplete="email" required
                 className="appearance-none block w-full px-3 py-2 bg-theme-bg border border-slate-700 rounded-md shadow-sm placeholder-slate-500 text-theme-text-primary focus:outline-none focus:ring-2 focus:ring-theme-accent-cyan focus:border-theme-accent-cyan sm:text-sm"
                 placeholder="you@example.com"
                 value={email}
-                onChange={(e) => {
-                  setEmail(e.target.value);
-                  handleClearLocalError();
-                }}
+                onChange={(e) => { setEmail(e.target.value); setError(null); }}
               />
             </div>
-
             <div>
               <button
-                type="submit"
-                disabled={loading}
+                type="submit" disabled={loading}
                 className="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-semibold text-theme-bg bg-theme-accent-cyan hover:bg-theme-accent-cyan-darker focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-theme-surface focus:ring-theme-accent-cyan disabled:opacity-70 transition-colors"
               >
                 {loading ? 'Sending...' : 'Send Password Reset Email'}

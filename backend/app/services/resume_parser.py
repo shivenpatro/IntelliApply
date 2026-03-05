@@ -2,7 +2,6 @@ import os
 import io
 import json
 import asyncio
-import tempfile
 import logging
 from datetime import datetime
 
@@ -10,7 +9,6 @@ from sqlalchemy.orm import Session
 import google.generativeai as genai
 
 from app.db.models import Profile, Skill, Experience
-from app.db.supabase import supabase
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
@@ -30,8 +28,6 @@ else:
     except Exception as e:
         logger.error(f"Error configuring Gemini model: {e}")
         gemini_model = None
-
-RESUME_BUCKET_NAME = "resume"
 
 # Extraction prompt — Gemini receives raw extracted text and returns structured JSON
 EXTRACTION_PROMPT_TEMPLATE = """
@@ -68,7 +64,7 @@ def _extract_text_from_pdf(file_bytes: bytes) -> str:
     Lightweight, pure-Python, no ML models needed — Gemini handles the intelligence.
     """
     try:
-        import pypdf  # lightweight ~1MB, successor to PyPDF2
+        import pypdf
 
         reader = pypdf.PdfReader(io.BytesIO(file_bytes))
         pages_text = []
@@ -96,7 +92,7 @@ def _extract_text_from_docx(file_bytes: bytes) -> str:
     Lightweight — reads paragraph text from Word XML structure.
     """
     try:
-        from docx import Document  # python-docx — lightweight, pure-Python
+        from docx import Document
 
         doc = Document(io.BytesIO(file_bytes))
         paragraphs = [para.text for para in doc.paragraphs if para.text.strip()]
@@ -112,12 +108,12 @@ def _extract_text_from_docx(file_bytes: bytes) -> str:
         return ""
 
 
-async def parse_resume(storage_file_path: str, profile_id: str, db: Session):
+async def parse_resume(file_bytes: bytes, file_extension: str, profile_id: str, db: Session):
     """
-    Parse a resume from Supabase Storage.
+    Parse a resume from in-memory bytes (no cloud storage needed).
 
     Pipeline:
-      1. Download file (PDF or DOCX) from Supabase Storage
+      1. Receive raw file bytes + extension directly from the upload endpoint
       2. Extract raw text using pypdf (PDF) or python-docx (DOCX)
       3. Send raw text to Gemini API for structured data extraction (name, skills, experiences)
       4. Save extracted data to PostgreSQL
@@ -127,32 +123,23 @@ async def parse_resume(storage_file_path: str, profile_id: str, db: Session):
     free-tier cloud hosting.
     """
     logger.info(
-        f"[ResumeParser] Starting for profile_id={profile_id}, path={storage_file_path}"
+        f"[ResumeParser] Starting for profile_id={profile_id}, extension={file_extension}, "
+        f"file_size={len(file_bytes)} bytes"
     )
 
     try:
-        # ── Step 1: Download from Supabase Storage ───────────────────────────
-        logger.info(f"[ResumeParser] Downloading: {storage_file_path}")
-        file_bytes = supabase.storage.from_(RESUME_BUCKET_NAME).download(path=storage_file_path)
-
-        if not file_bytes:
-            logger.error(f"[ResumeParser] Empty download for {storage_file_path}. Aborting.")
-            return
-
-        logger.info(f"[ResumeParser] Downloaded {len(file_bytes)} bytes.")
-
         if not gemini_model:
             logger.error("[ResumeParser] Gemini model not configured. Aborting.")
             return
 
-        # ── Step 2: Extract raw text based on file type ──────────────────────
-        lower_path = storage_file_path.lower()
-        if lower_path.endswith(".pdf"):
+        # ── Step 1: Extract raw text based on file type ──────────────────────
+        ext = file_extension.lower()
+        if ext == "pdf":
             raw_text = _extract_text_from_pdf(file_bytes)
-        elif lower_path.endswith(".docx"):
+        elif ext == "docx":
             raw_text = _extract_text_from_docx(file_bytes)
         else:
-            logger.error(f"[ResumeParser] Unsupported file type: {storage_file_path}")
+            logger.error(f"[ResumeParser] Unsupported file type: .{ext}")
             return
 
         if not raw_text.strip():
@@ -162,7 +149,7 @@ async def parse_resume(storage_file_path: str, profile_id: str, db: Session):
         logger.info(f"[ResumeParser] Extracted {len(raw_text)} chars. Sending to Gemini...")
         logger.debug(f"[ResumeParser] Text sample (first 500 chars): {raw_text[:500]}")
 
-        # ── Step 3: Send raw text to Gemini for structured extraction ────────
+        # ── Step 2: Send raw text to Gemini for structured extraction ────────
         prompt = EXTRACTION_PROMPT_TEMPLATE.format(resume_text=raw_text)
 
         try:
@@ -206,7 +193,7 @@ async def parse_resume(storage_file_path: str, profile_id: str, db: Session):
             f"skills={len(extracted_skills)}, experiences={len(extracted_experiences)}"
         )
 
-        # ── Step 4: Save to database ─────────────────────────────────────────
+        # ── Step 3: Save to database ─────────────────────────────────────────
         profile = db.query(Profile).filter(Profile.id == profile_id).first()
         if not profile:
             logger.warning(f"[ResumeParser] Profile {profile_id} not found. Cannot save.")

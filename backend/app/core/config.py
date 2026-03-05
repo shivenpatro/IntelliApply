@@ -49,10 +49,10 @@ class Settings(BaseSettings):
     JOB_SOURCES: List[str] = ["linkedin", "indeed", "hackernews"]
     SCRAPING_INTERVAL_MINUTES: int = 60
 
-    # Supabase settings
-    SUPABASE_URL: Optional[str] = os.getenv("SUPABASE_URL")
-    SUPABASE_KEY: Optional[str] = os.getenv("SUPABASE_KEY")
-    SUPABASE_SERVICE_KEY: Optional[str] = os.getenv("SUPABASE_SERVICE_KEY")
+
+    # Neon Auth settings
+    NEON_AUTH_URL: Optional[str] = os.getenv("NEON_AUTH_URL")
+
 
     # Additional scraper settings
     SCRAPER_INTERVAL_MINUTES: Optional[int] = int(os.getenv("SCRAPER_INTERVAL_MINUTES", "60")) # Old setting, can be removed or kept for other uses

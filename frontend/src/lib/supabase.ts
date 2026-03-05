@@ -4,28 +4,13 @@
  * Handles sign-up, sign-in, sign-out, and session management
  * by talking directly to the Neon Auth REST API.
  *
- * Supabase client is ONLY kept for Storage (resume uploads).
+ * Zero Supabase dependency — fully migrated to Neon.
  */
-
-import { createClient } from '@supabase/supabase-js';
-import type { Database } from './database.types';
 
 // ─── Neon Auth Configuration ────────────────────────────────────────────────
 const NEON_AUTH_URL =
   import.meta.env.VITE_NEON_AUTH_URL ||
   'https://ep-green-glade-ajuf7urf.neonauth.c-3.us-east-2.aws.neon.tech/neondb/auth';
-
-// ─── Supabase client — ONLY used for Storage (resume bucket) ────────────────
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
-
-export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
-  auth: {
-    autoRefreshToken: false,
-    persistSession: false,
-    detectSessionInUrl: false,
-  },
-});
 
 // ─── Session storage helpers ─────────────────────────────────────────────────
 const SESSION_KEY = 'neon_auth_session';
@@ -62,7 +47,7 @@ function loadSession(): NeonAuthSession | null {
 
 function clearSession() {
   localStorage.removeItem(SESSION_KEY);
-  // Also clear any leftover Supabase keys
+  // Also clear any leftover Supabase/old auth keys
   Object.keys(localStorage).forEach((key) => {
     if (key.includes('supabase') || key.includes('sb-')) {
       localStorage.removeItem(key);
@@ -98,7 +83,6 @@ export const signUp = async (email: string, password: string) => {
 
     console.log('[NeonAuth] Sign up successful:', data);
 
-    // Better Auth returns { user, token, session } on sign-up
     const user: NeonAuthUser = data.user;
     const token: string = data.token || data.session?.token || '';
 
@@ -158,7 +142,6 @@ export const signOut = async () => {
   try {
     console.log('[NeonAuth] Signing out...');
 
-    // Try to call Neon Auth logout endpoint
     const session = loadSession();
     if (session?.token) {
       try {
@@ -179,8 +162,8 @@ export const signOut = async () => {
     return { error: null };
   } catch (error) {
     console.error('[NeonAuth] signOut exception:', error);
-    clearSession(); // Still clear locally
-    return { error: null }; // Return success to ensure UI updates
+    clearSession();
+    return { error: null };
   }
 };
 
