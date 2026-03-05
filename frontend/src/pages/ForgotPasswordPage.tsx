@@ -23,7 +23,7 @@ const ForgotPasswordPage = () => {
     setLoading(true);
 
     try {
-      const response = await fetch(`${NEON_AUTH_URL}/api/auth/forget-password`, {
+      const response = await fetch(`${NEON_AUTH_URL}/forget-password`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

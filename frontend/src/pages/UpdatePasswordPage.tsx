@@ -44,7 +44,7 @@ const UpdatePasswordPage = () => {
 
     setLoading(true);
     try {
-      const response = await fetch(`${NEON_AUTH_URL}/api/auth/reset-password`, {
+      const response = await fetch(`${NEON_AUTH_URL}/reset-password`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

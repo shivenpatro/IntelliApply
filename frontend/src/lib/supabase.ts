@@ -61,7 +61,7 @@ export const signUp = async (email: string, password: string) => {
   try {
     console.log(`[NeonAuth] Signing up: ${email}`);
 
-    const response = await fetch(`${NEON_AUTH_URL}/api/auth/sign-up/email`, {
+    const response = await fetch(`${NEON_AUTH_URL}/sign-up/email`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -104,7 +104,7 @@ export const signIn = async (email: string, password: string) => {
   try {
     console.log(`[NeonAuth] Signing in: ${email}`);
 
-    const response = await fetch(`${NEON_AUTH_URL}/api/auth/sign-in/email`, {
+    const response = await fetch(`${NEON_AUTH_URL}/sign-in/email`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password }),
@@ -145,7 +145,7 @@ export const signOut = async () => {
     const session = loadSession();
     if (session?.token) {
       try {
-        await fetch(`${NEON_AUTH_URL}/api/auth/sign-out`, {
+        await fetch(`${NEON_AUTH_URL}/sign-out`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
