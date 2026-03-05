@@ -20,3 +20,4 @@ pypdf==5.1.0
 python-docx==1.1.2
 python-jose[cryptography]==3.3.0
 httpx==0.28.1
+scikit-learn==1.5.2
