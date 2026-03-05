@@ -1,28 +1,26 @@
 import os
-from sqlalchemy.orm import Session
-from sqlalchemy.exc import SQLAlchemyError
-import logging
 import io
+import json
+import asyncio
 import tempfile
-import json # Import json for parsing Gemini response
-import google.generativeai as genai # Import Gemini library
-from datetime import datetime # Import datetime for date parsing
+import logging
+from datetime import datetime
+
+from sqlalchemy.orm import Session
+import google.generativeai as genai
 
 from app.db.models import Profile, Skill, Experience
-from app.db.supabase import supabase # Ensure supabase is imported
-from docling.document_converter import DocumentConverter, ConversionResult # Import ConversionResult
-from app.services.hackernews_scraper import extract_tech_stack # This import is not currently used in this function
+from app.db.supabase import supabase
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
 # --- Gemini API Configuration ---
-# IMPORTANT: Replace with your actual API key or load from environment variables
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 GEMINI_MODEL_NAME = "gemini-2.5-flash-lite-preview-06-17"
 
 if not GEMINI_API_KEY:
-    logger.error("GEMINI_API_KEY is not set. Please set it in your .env file.")
+    logger.error("GEMINI_API_KEY is not set. Resume parsing will not work.")
     gemini_model = None
 else:
     try:
@@ -32,174 +30,261 @@ else:
     except Exception as e:
         logger.error(f"Error configuring Gemini model: {e}")
         gemini_model = None
-# --- End Gemini API Configuration ---
 
 RESUME_BUCKET_NAME = "resume"
 
+# Extraction prompt — Gemini receives raw extracted text and returns structured JSON
+EXTRACTION_PROMPT_TEMPLATE = """
+You are a professional resume parser. Extract the following information from the resume text below and return it as a valid JSON object only (no markdown, no explanation, no extra text):
+
+{{
+  "full_name": "Full name of the person",
+  "skills": ["skill1", "skill2", "skill3"],
+  "experiences": [
+    {{
+      "title": "Job title",
+      "company": "Company name",
+      "location": "City, Country (or Remote) — empty string if not found",
+      "start_date": "YYYY-MM-DD",
+      "end_date": "YYYY-MM-DD or Present",
+      "description": "Brief summary of responsibilities and achievements"
+    }}
+  ]
+}}
+
+Rules:
+- skills: include ALL technical skills, tools, programming languages, frameworks, and relevant soft skills
+- start_date / end_date: use YYYY-MM-DD format; if only year is given use YYYY-01-01; use "Present" for current roles
+- Return ONLY the JSON object — no markdown fences, no commentary
+
+Resume Text:
+{resume_text}
+"""
+
+
+def _extract_text_from_pdf(file_bytes: bytes) -> str:
+    """
+    Extract raw text from a PDF using pypdf.
+    Lightweight, pure-Python, no ML models needed — Gemini handles the intelligence.
+    """
+    try:
+        import pypdf  # lightweight ~1MB, successor to PyPDF2
+
+        reader = pypdf.PdfReader(io.BytesIO(file_bytes))
+        pages_text = []
+        for i, page in enumerate(reader.pages):
+            page_text = page.extract_text() or ""
+            if page_text.strip():
+                pages_text.append(page_text)
+            logger.debug(f"[ResumeParser] PDF page {i + 1}: extracted {len(page_text)} chars")
+
+        full_text = "\n\n".join(pages_text)
+        logger.info(f"[ResumeParser] pypdf extracted {len(full_text)} chars from {len(reader.pages)} pages.")
+        return full_text
+
+    except ImportError:
+        logger.error("[ResumeParser] pypdf not installed. Add 'pypdf' to requirements.txt.")
+        return ""
+    except Exception as e:
+        logger.error(f"[ResumeParser] pypdf extraction error: {e}", exc_info=True)
+        return ""
+
+
+def _extract_text_from_docx(file_bytes: bytes) -> str:
+    """
+    Extract raw text from a DOCX file using python-docx.
+    Lightweight — reads paragraph text from Word XML structure.
+    """
+    try:
+        from docx import Document  # python-docx — lightweight, pure-Python
+
+        doc = Document(io.BytesIO(file_bytes))
+        paragraphs = [para.text for para in doc.paragraphs if para.text.strip()]
+        full_text = "\n".join(paragraphs)
+        logger.info(f"[ResumeParser] python-docx extracted {len(full_text)} chars from {len(paragraphs)} paragraphs.")
+        return full_text
+
+    except ImportError:
+        logger.error("[ResumeParser] python-docx not installed. Add 'python-docx' to requirements.txt.")
+        return ""
+    except Exception as e:
+        logger.error(f"[ResumeParser] python-docx extraction error: {e}", exc_info=True)
+        return ""
+
+
 async def parse_resume(storage_file_path: str, profile_id: str, db: Session):
     """
-    Parse a resume from Supabase Storage using Docling and update the profile.
-    Then use Gemini API to extract structured data.
-    """
-    logger.info(f"Starting resume parsing with Docling for profile_id: {profile_id}, storage_path: {storage_file_path}")
+    Parse a resume from Supabase Storage.
 
-    file_bytes = None
-    temp_file_path = None
+    Pipeline:
+      1. Download file (PDF or DOCX) from Supabase Storage
+      2. Extract raw text using pypdf (PDF) or python-docx (DOCX)
+      3. Send raw text to Gemini API for structured data extraction (name, skills, experiences)
+      4. Save extracted data to PostgreSQL
+
+    Uses lightweight parsers (pypdf / python-docx) for text extraction instead of heavy
+    ML-based converters, keeping the Docker image memory footprint small enough for
+    free-tier cloud hosting.
+    """
+    logger.info(
+        f"[ResumeParser] Starting for profile_id={profile_id}, path={storage_file_path}"
+    )
 
     try:
-        logger.info(f"Downloading resume from Supabase Storage: {storage_file_path}")
-        # This line caused NameError previously. Assuming it's fixed by proper import/init.
+        # ── Step 1: Download from Supabase Storage ───────────────────────────
+        logger.info(f"[ResumeParser] Downloading: {storage_file_path}")
         file_bytes = supabase.storage.from_(RESUME_BUCKET_NAME).download(path=storage_file_path)
+
         if not file_bytes:
-            logger.error(f"Failed to download resume from Supabase Storage (empty response): {storage_file_path} for profile {profile_id}")
+            logger.error(f"[ResumeParser] Empty download for {storage_file_path}. Aborting.")
             return
-        logger.info(f"Successfully downloaded {len(file_bytes)} bytes from Supabase Storage for profile {profile_id}")
 
-        original_filename = os.path.basename(storage_file_path)
-        converter = DocumentConverter()
-        
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as temp_file:
-            temp_file.write(file_bytes)
-            temp_file_path = temp_file.name
+        logger.info(f"[ResumeParser] Downloaded {len(file_bytes)} bytes.")
 
-        logger.info(f"Attempting docling conversion for file: {temp_file_path}")
-        result = converter.convert(temp_file_path)
-        logger.info(f"Docling converter.convert() returned: {result}")
-        
-        # --- Process the result and update the database ---
-        if isinstance(result, ConversionResult) and result.document:
-            logger.info("Docling result is a ConversionResult object. Extracting text for Gemini.")
-            
-            full_resume_text = ""
-            if result.document.texts:
-                for text_item in result.document.texts:
-                    if hasattr(text_item, 'text') and text_item.text:
-                        full_resume_text += text_item.text + " "
-            
-            logger.info(f"Full extracted resume text (first 500 chars): {full_resume_text[:500]}...")
+        if not gemini_model:
+            logger.error("[ResumeParser] Gemini model not configured. Aborting.")
+            return
 
-            if not gemini_model:
-                logger.error("Gemini model not configured. Cannot extract data using Gemini API.")
-                return
-
-            # --- Use Gemini API for extraction ---
-            prompt = f"""
-            Extract the following information from the resume text below in JSON format.
-            - full_name: The full name of the person.
-            - skills: A list of key technical and soft skills.
-            - experiences: A list of work experiences, each with title, company, start_date (YYYY-MM-DD), end_date (YYYY-MM-DD or 'Present'), and description.
-
-            Resume Text:
-            {full_resume_text}
-
-            Ensure the output is a valid JSON object.
-            """
-            
-            logger.info("Sending resume text to Gemini API for extraction...")
-            try:
-                gemini_response = await gemini_model.generate_content_async(prompt)
-                
-                # Access the text from the parts of the response
-                gemini_output_text = ""
-                for part in gemini_response.parts:
-                    if hasattr(part, 'text'):
-                        gemini_output_text += part.text
-                
-                logger.info(f"Gemini API raw response: {gemini_output_text}")
-
-                # Attempt to parse the JSON response
-                # Gemini might include markdown, so try to extract JSON block
-                if "```json" in gemini_output_text:
-                    json_str = gemini_output_text.split("```json")[1].split("```")[0].strip()
-                else:
-                    json_str = gemini_output_text.strip()
-
-                extracted_data = json.loads(json_str)
-                logger.info(f"Gemini extracted data: {extracted_data}")
-
-                extracted_name = extracted_data.get("full_name")
-                extracted_skills = set(extracted_data.get("skills", []))
-                extracted_experiences = extracted_data.get("experiences", [])
-
-            except Exception as gemini_e:
-                logger.error(f"Error calling Gemini API or parsing response: {gemini_e}", exc_info=True)
-                extracted_name = None
-                extracted_skills = set()
-                extracted_experiences = []
-
-            # --- Save extracted data to the database ---
-            profile = db.query(Profile).filter(Profile.id == profile_id).first()
-            if profile:
-                # Update profile name if extracted
-                if extracted_name:
-                    name_parts = extracted_name.split(' ', 1) # Split into at most 2 parts
-                    profile.first_name = name_parts[0] if name_parts else None
-                    profile.last_name = name_parts[1] if len(name_parts) > 1 else None
-                    logger.info(f"Updated profile first_name: {profile.first_name}, last_name: {profile.last_name}")
-
-                # Clear existing skills and add new ones
-                db.query(Skill).filter(Skill.profile_id == profile_id).delete()
-                for skill_name in extracted_skills:
-                    new_skill = Skill(profile_id=profile_id, name=skill_name)
-                    db.add(new_skill)
-                logger.info(f"Added {len(extracted_skills)} skills to profile {profile_id}.")
-
-                # Clear existing experiences and add new ones
-                db.query(Experience).filter(Experience.profile_id == profile_id).delete()
-                for exp_data in extracted_experiences:
-                    try:
-                        start_date_str = exp_data.get('start_date')
-                        end_date_str = exp_data.get('end_date')
-
-                        parsed_start_date = None
-                        if start_date_str:
-                            try:
-                                parsed_start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
-                            except ValueError:
-                                logger.warning(f"Could not parse start_date: {start_date_str}")
-
-                        parsed_end_date = None
-                        if end_date_str and end_date_str.lower() != 'present':
-                            try:
-                                parsed_end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
-                            except ValueError:
-                                logger.warning(f"Could not parse end_date: {end_date_str}")
-
-                        new_experience = Experience(
-                            profile_id=profile_id,
-                            title=exp_data.get('title'),
-                            company=exp_data.get('company'),
-                            start_date=parsed_start_date,
-                            end_date=parsed_end_date,
-                            description=exp_data.get('description'),
-                            location=exp_data.get('location')
-                        )
-                        db.add(new_experience)
-                    except Exception as exp_add_error:
-                        logger.error(f"Error adding experience entry {exp_data}: {exp_add_error}", exc_info=True)
-                logger.info(f"Added {len(extracted_experiences)} experiences to profile {profile_id}.")
-
-                db.commit()
-                logger.info(f"Successfully committed extracted data for profile {profile_id}.")
-            else:
-                logger.warning(f"Profile with ID {profile_id} not found. Cannot save extracted data.")
-
+        # ── Step 2: Extract raw text based on file type ──────────────────────
+        lower_path = storage_file_path.lower()
+        if lower_path.endswith(".pdf"):
+            raw_text = _extract_text_from_pdf(file_bytes)
+        elif lower_path.endswith(".docx"):
+            raw_text = _extract_text_from_docx(file_bytes)
         else:
-            logger.warning(f"Docling converter returned an unexpected result type or no document: {type(result)}")
+            logger.error(f"[ResumeParser] Unsupported file type: {storage_file_path}")
+            return
+
+        if not raw_text.strip():
+            logger.error("[ResumeParser] No text extracted from resume. Cannot proceed.")
+            return
+
+        logger.info(f"[ResumeParser] Extracted {len(raw_text)} chars. Sending to Gemini...")
+        logger.debug(f"[ResumeParser] Text sample (first 500 chars): {raw_text[:500]}")
+
+        # ── Step 3: Send raw text to Gemini for structured extraction ────────
+        prompt = EXTRACTION_PROMPT_TEMPLATE.format(resume_text=raw_text)
+
+        try:
+            gemini_response = await gemini_model.generate_content_async(prompt)
+        except Exception as gemini_err:
+            logger.error(f"[ResumeParser] Gemini API call failed: {gemini_err}", exc_info=True)
+            return
+
+        # Collect response text
+        raw_response = ""
+        if hasattr(gemini_response, "text"):
+            raw_response = gemini_response.text.strip()
+        else:
+            for part in gemini_response.parts:
+                if hasattr(part, "text"):
+                    raw_response += part.text
+            raw_response = raw_response.strip()
+
+        logger.info(f"[ResumeParser] Gemini response (first 300 chars): {raw_response[:300]}")
+
+        # Strip markdown fences if present despite instructions
+        if "```json" in raw_response:
+            raw_response = raw_response.split("```json")[1].split("```")[0].strip()
+        elif "```" in raw_response:
+            raw_response = raw_response.split("```")[1].split("```")[0].strip()
+
+        try:
+            extracted_data = json.loads(raw_response)
+        except json.JSONDecodeError as je:
+            logger.error(
+                f"[ResumeParser] Failed to parse JSON from Gemini response: {je}\nRaw: {raw_response[:500]}"
+            )
+            return
+
+        extracted_name = extracted_data.get("full_name")
+        extracted_skills = extracted_data.get("skills", [])
+        extracted_experiences = extracted_data.get("experiences", [])
+
+        logger.info(
+            f"[ResumeParser] Parsed: name='{extracted_name}', "
+            f"skills={len(extracted_skills)}, experiences={len(extracted_experiences)}"
+        )
+
+        # ── Step 4: Save to database ─────────────────────────────────────────
+        profile = db.query(Profile).filter(Profile.id == profile_id).first()
+        if not profile:
+            logger.warning(f"[ResumeParser] Profile {profile_id} not found. Cannot save.")
+            return
+
+        # Update name
+        if extracted_name and isinstance(extracted_name, str) and extracted_name.strip():
+            name_parts = extracted_name.strip().split(" ", 1)
+            profile.first_name = name_parts[0]
+            profile.last_name = name_parts[1] if len(name_parts) > 1 else None
+            logger.info(f"[ResumeParser] Name: {profile.first_name} {profile.last_name}")
+
+        # Replace skills
+        db.query(Skill).filter(Skill.profile_id == profile_id).delete()
+        seen_skills = set()
+        for skill_name in extracted_skills:
+            if not isinstance(skill_name, str):
+                continue
+            skill_name = skill_name.strip()
+            if skill_name and skill_name.lower() not in seen_skills:
+                seen_skills.add(skill_name.lower())
+                db.add(Skill(profile_id=profile_id, name=skill_name))
+        logger.info(f"[ResumeParser] Inserted {len(seen_skills)} skills.")
+
+        # Replace experiences
+        db.query(Experience).filter(Experience.profile_id == profile_id).delete()
+        exp_count = 0
+        for exp_data in extracted_experiences:
+            try:
+                start_str = (exp_data.get("start_date") or "").strip()
+                end_str = (exp_data.get("end_date") or "").strip()
+
+                parsed_start = None
+                if start_str:
+                    try:
+                        parsed_start = datetime.strptime(start_str, "%Y-%m-%d").date()
+                    except ValueError:
+                        logger.warning(f"[ResumeParser] Cannot parse start_date: '{start_str}'")
+
+                parsed_end = None
+                if end_str and end_str.lower() not in ("present", "current", "now", ""):
+                    try:
+                        parsed_end = datetime.strptime(end_str, "%Y-%m-%d").date()
+                    except ValueError:
+                        logger.warning(f"[ResumeParser] Cannot parse end_date: '{end_str}'")
+
+                db.add(
+                    Experience(
+                        profile_id=profile_id,
+                        title=str(exp_data.get("title") or "").strip() or "Unknown",
+                        company=str(exp_data.get("company") or "").strip() or "Unknown",
+                        location=exp_data.get("location") or None,
+                        start_date=parsed_start,
+                        end_date=parsed_end,
+                        description=exp_data.get("description") or None,
+                    )
+                )
+                exp_count += 1
+            except Exception as exp_err:
+                logger.error(f"[ResumeParser] Error adding experience {exp_data}: {exp_err}", exc_info=True)
+
+        logger.info(f"[ResumeParser] Inserted {exp_count} experiences.")
+
+        db.commit()
+        logger.info(f"[ResumeParser] ✅ Committed all data for profile {profile_id}.")
 
     except Exception as e:
-        logger.error(f"Error processing resume with Docling or saving to DB for profile {profile_id}: {e}", exc_info=True)
-        db.rollback()
+        logger.error(f"[ResumeParser] Unexpected error for profile {profile_id}: {e}", exc_info=True)
+        try:
+            db.rollback()
+        except Exception:
+            pass
     finally:
-        if temp_file_path and os.path.exists(temp_file_path):
-            try:
-                os.remove(temp_file_path)
-                logger.debug(f"Removed temporary file: {temp_file_path}")
-            except Exception as cleanup_error:
-                logger.error(f"Error removing temporary file {temp_file_path}: {cleanup_error}")
-        
         if db:
-            db.close()
-            logger.debug("Database session closed in parse_resume finally block.")
+            try:
+                db.close()
+                logger.debug("[ResumeParser] DB session closed.")
+            except Exception:
+                pass
 
-    logger.info(f"Finished resume parsing for profile_id: {profile_id}")
+    logger.info(f"[ResumeParser] Finished for profile_id={profile_id}")

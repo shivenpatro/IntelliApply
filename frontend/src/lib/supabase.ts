@@ -1,279 +1,237 @@
+/**
+ * Neon Auth (Better Auth) client library.
+ *
+ * Handles sign-up, sign-in, sign-out, and session management
+ * by talking directly to the Neon Auth REST API.
+ *
+ * Supabase client is ONLY kept for Storage (resume uploads).
+ */
+
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './database.types';
 
-// Supabase client setup
+// ─── Neon Auth Configuration ────────────────────────────────────────────────
+const NEON_AUTH_URL =
+  import.meta.env.VITE_NEON_AUTH_URL ||
+  'https://ep-green-glade-ajuf7urf.neonauth.c-3.us-east-2.aws.neon.tech/neondb/auth';
+
+// ─── Supabase client — ONLY used for Storage (resume bucket) ────────────────
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
 
-// Validate environment variables
-if (!supabaseUrl || !supabaseAnonKey) {
-  console.error('Missing Supabase environment variables. Please check your .env file.');
-}
-
-// Create and export the typed Supabase client with custom options
 export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
   auth: {
-    autoRefreshToken: true,
-    persistSession: true,
-    detectSessionInUrl: true
+    autoRefreshToken: false,
+    persistSession: false,
+    detectSessionInUrl: false,
   },
-  global: {
-    // Add fetch options to handle rate limiting
-    fetch: (url, options) => {
-      return fetch(url, {
-        ...options,
-        // Add cache control to avoid rate limiting
-        headers: {
-          ...options?.headers,
-          'Cache-Control': 'no-store, max-age=0',
-        },
-        // Increase timeout for slow connections
-        signal: options?.signal || (() => {
-          const controller = new AbortController();
-          // Set a very long timeout (30 seconds)
-          setTimeout(() => controller.abort(), 60000);
-          return controller.signal;
-        })()
-      });
-    }
-  }
 });
 
-// Auth helper functions
-// Helper function to add retry logic with exponential backoff
-const withRetry = async (fn: () => Promise<any>, maxRetries = 5, initialDelay = 2000) => {
-  let lastError;
+// ─── Session storage helpers ─────────────────────────────────────────────────
+const SESSION_KEY = 'neon_auth_session';
 
-  for (let attempt = 0; attempt < maxRetries; attempt++) {
-    try {
-      console.log(`Attempt ${attempt + 1} of ${maxRetries}...`);
-      // Add a small delay before first retry to avoid immediate rate limiting
-      if (attempt > 0) {
-        const backoffDelay = initialDelay * Math.pow(2, attempt - 1); // Exponential backoff
-        console.log(`Waiting ${backoffDelay}ms before retry...`);
-        await new Promise(resolve => setTimeout(resolve, backoffDelay));
-      }
+export interface NeonAuthUser {
+  id: string;
+  email: string;
+  name: string;
+  image?: string | null;
+  emailVerified: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
 
-      return await fn();
-    } catch (error: any) {
-      console.log(`Attempt ${attempt + 1} failed:`, error);
-      lastError = error;
+export interface NeonAuthSession {
+  token: string;
+  user: NeonAuthUser;
+  expiresAt?: string;
+}
 
-      // Always retry for timeout errors
-      if (error.message?.includes('timeout') || error.message?.includes('abort')) {
-        console.log('Timeout error detected, will retry...');
-        continue;
-      }
+function saveSession(session: NeonAuthSession) {
+  localStorage.setItem(SESSION_KEY, JSON.stringify(session));
+}
 
-      // If it's a rate limit error, always retry with backoff
-      if (error.message?.includes('Too many requests') || error.status === 429) {
-        console.log('Rate limit error detected, will retry with backoff...');
-        continue;
-      }
-
-      // For network errors, retry
-      if (error.message?.includes('network') || error.message?.includes('fetch')) {
-        console.log('Network error detected, will retry...');
-        continue;
-      }
-
-      // For other errors, don't retry
-      console.log('Non-retryable error detected, stopping retry attempts');
-      break;
-    }
+function loadSession(): NeonAuthSession | null {
+  try {
+    const raw = localStorage.getItem(SESSION_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw) as NeonAuthSession;
+  } catch {
+    return null;
   }
+}
 
-  console.log('All retry attempts failed');
-  throw lastError;
-};
+function clearSession() {
+  localStorage.removeItem(SESSION_KEY);
+  // Also clear any leftover Supabase keys
+  Object.keys(localStorage).forEach((key) => {
+    if (key.includes('supabase') || key.includes('sb-')) {
+      localStorage.removeItem(key);
+    }
+  });
+}
+
+// ─── Auth API calls to Neon Auth ─────────────────────────────────────────────
 
 export const signUp = async (email: string, password: string) => {
   try {
-    console.log(`Attempting to sign up user: ${email}`);
+    console.log(`[NeonAuth] Signing up: ${email}`);
 
-    // Create a simple fetch request directly to Supabase API
-    // This bypasses the Supabase JS client which might be causing issues
-    const directResponse = await fetch(`${supabaseUrl}/auth/v1/signup`, {
+    const response = await fetch(`${NEON_AUTH_URL}/api/auth/sign-up/email`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'apikey': supabaseAnonKey,
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         email,
         password,
-        data: {
-          confirmed_at: new Date().toISOString() // Attempt to pre-confirm the user
-        },
+        name: email.split('@')[0], // Default name from email
       }),
+      credentials: 'include',
     });
 
-    if (!directResponse.ok) {
-      // If the direct API call fails, fall back to the Supabase client
-      console.log('Direct API call failed, falling back to Supabase client');
-      const clientResponse = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: {
-            confirmed_at: new Date().toISOString()
-          },
-        }
-      });
+    const data = await response.json();
 
-      console.log('Supabase client signup response:', clientResponse);
-      return clientResponse;
+    if (!response.ok) {
+      const errorMessage =
+        data?.message || data?.error || `Registration failed (${response.status})`;
+      console.error('[NeonAuth] Sign up error:', errorMessage);
+      return { data: { user: null, session: null }, error: new Error(errorMessage) };
     }
 
-    // Parse the direct API response
-    const responseData = await directResponse.json();
-    console.log('Direct API signup response:', responseData);
+    console.log('[NeonAuth] Sign up successful:', data);
 
-    // Format the response to match Supabase client format
-    return {
-      data: {
-        user: responseData.user || null,
-        session: responseData.session || null,
-      },
-      error: responseData.error || null,
-    };
+    // Better Auth returns { user, token, session } on sign-up
+    const user: NeonAuthUser = data.user;
+    const token: string = data.token || data.session?.token || '';
+
+    if (user && token) {
+      const session: NeonAuthSession = { token, user };
+      saveSession(session);
+      return { data: { user, session }, error: null };
+    }
+
+    // If sign-up succeeded but no immediate session (email verification required)
+    return { data: { user: data.user || null, session: null }, error: null };
   } catch (error) {
-    console.error('Error in signUp:', error);
+    console.error('[NeonAuth] signUp exception:', error);
     return { data: { user: null, session: null }, error: error as Error };
   }
 };
 
 export const signIn = async (email: string, password: string) => {
   try {
-    console.log(`Attempting to sign in user: ${email} using Supabase client...`);
-    // Use ONLY the Supabase client method for consistency and session management
-    const response = await supabase.auth.signInWithPassword({
-      email,
-      password,
+    console.log(`[NeonAuth] Signing in: ${email}`);
+
+    const response = await fetch(`${NEON_AUTH_URL}/api/auth/sign-in/email`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+      credentials: 'include',
     });
 
-    // Log the full response object for debugging
-    console.log('signInWithPassword response:', response);
+    const data = await response.json();
 
-    // If there's an error about email not being confirmed, try to resend confirmation
-    if (response.error && response.error.message?.includes('Email not confirmed')) {
-      console.log('Email not confirmed. Sending confirmation email...');
-      await resendConfirmationEmail(email);
+    if (!response.ok) {
+      const errorMessage =
+        data?.message || data?.error || `Login failed (${response.status})`;
+      console.error('[NeonAuth] Sign in error:', errorMessage);
+      return { data: { user: null, session: null }, error: new Error(errorMessage) };
     }
 
-    if (response.data?.user) {
-      console.log('Sign in successful for user:', response.data.user.email);
+    console.log('[NeonAuth] Sign in successful:', data);
+
+    const user: NeonAuthUser = data.user;
+    const token: string = data.token || data.session?.token || '';
+
+    if (user && token) {
+      const session: NeonAuthSession = { token, user };
+      saveSession(session);
+      return { data: { user, session }, error: null };
     }
 
-    return response;
+    return { data: { user: null, session: null }, error: new Error('No session returned') };
   } catch (error) {
-    console.error('Error in signIn:', error);
+    console.error('[NeonAuth] signIn exception:', error);
     return { data: { user: null, session: null }, error: error as Error };
-  }
-};
-
-export const resendConfirmationEmail = async (email: string) => {
-  try {
-    console.log(`Attempting to resend confirmation email to: ${email}`);
-
-    // Use retry logic for resending confirmation email
-    const response = await withRetry(() => supabase.auth.resend({
-      type: 'signup',
-      email,
-    }));
-
-    if (response.error) {
-      console.error('Error resending confirmation email:', response.error);
-    } else {
-      console.log('Confirmation email resend request successful');
-    }
-
-    return response;
-  } catch (error) {
-    console.error('Exception when resending confirmation email:', error);
-    return { data: {}, error: error as Error };
   }
 };
 
 export const signOut = async () => {
   try {
-    console.log('Executing signOut in supabase.ts');
+    console.log('[NeonAuth] Signing out...');
 
-    // Clear any local storage items related to auth first
-    const storageKeys = Object.keys(localStorage);
-    storageKeys.forEach(key => {
-      if (key.includes('supabase') || key.includes('sb-')) {
-        console.log('Removing localStorage item:', key);
-        localStorage.removeItem(key);
-      }
-    });
-
-    // Get the current session to extract the access token
-    const { data: sessionData } = await supabase.auth.getSession();
-    const accessToken = sessionData?.session?.access_token;
-
-    // Try the Supabase client method first
-    try {
-      const result = await supabase.auth.signOut();
-      console.log('Supabase signOut result:', result);
-    } catch (clientError) {
-      console.error('Supabase client signOut error:', clientError);
-    }
-
-    // Then try the direct API call with the token if available
-    if (accessToken) {
+    // Try to call Neon Auth logout endpoint
+    const session = loadSession();
+    if (session?.token) {
       try {
-        const response = await fetch(`${supabaseUrl}/auth/v1/logout`, {
+        await fetch(`${NEON_AUTH_URL}/api/auth/sign-out`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'apikey': supabaseAnonKey,
-            'Authorization': `Bearer ${accessToken}`
+            Authorization: `Bearer ${session.token}`,
           },
+          credentials: 'include',
         });
-
-        console.log('Direct logout API response:', response.status);
-      } catch (directError) {
-        console.error('Direct logout API error:', directError);
+      } catch (e) {
+        console.warn('[NeonAuth] Server-side sign-out failed (non-critical):', e);
       }
     }
 
-    // Force clear session state regardless of API success
-    // This ensures the UI updates even if the API calls fail
+    clearSession();
     return { error: null };
   } catch (error) {
-    console.error('Error in signOut:', error);
-    // Return success anyway to ensure UI updates
-    return { error: null };
+    console.error('[NeonAuth] signOut exception:', error);
+    clearSession(); // Still clear locally
+    return { error: null }; // Return success to ensure UI updates
   }
-};
-
-export const getCurrentUser = async () => {
-  return await supabase.auth.getUser();
 };
 
 export const getSession = async () => {
-  return await supabase.auth.getSession();
-};
-
-// Listen for auth changes
-export const onAuthStateChange = (callback: (event: any, session: any) => void) => {
-  return supabase.auth.onAuthStateChange(callback);
-};
-
-export const signInWithGoogle = async () => {
-  console.log('Attempting to sign in with Google...');
-  const { data, error } = await supabase.auth.signInWithOAuth({
-    provider: 'google',
-    options: {
-      // Optional: redirectTo can be used if you want users to land on a specific page after Google auth
-      // redirectTo: `${window.location.origin}/dashboard` 
-    }
-  });
-  if (error) {
-    console.error('Error signing in with Google:', error);
-    // The error will typically be handled by the component calling this,
-    // or by onAuthStateChange if it's a redirect-based error.
+  const session = loadSession();
+  if (session) {
+    return { data: { session }, error: null };
   }
-  return { data, error };
+  return { data: { session: null }, error: null };
 };
+
+export const getCurrentUser = async () => {
+  const session = loadSession();
+  if (session?.user) {
+    return { data: { user: session.user }, error: null };
+  }
+  return { data: { user: null }, error: null };
+};
+
+/**
+ * Get the current access token for API requests.
+ * Used by the axios interceptor in api.ts.
+ */
+export const getAccessToken = (): string | null => {
+  const session = loadSession();
+  return session?.token || null;
+};
+
+// Auth state change listener (simplified — polls localStorage)
+type AuthCallback = (event: string, session: NeonAuthSession | null) => void;
+const listeners: Set<AuthCallback> = new Set();
+
+export const onAuthStateChange = (callback: AuthCallback) => {
+  listeners.add(callback);
+
+  // Immediately fire with current state
+  const session = loadSession();
+  callback(session ? 'SIGNED_IN' : 'SIGNED_OUT', session);
+
+  return {
+    data: {
+      subscription: {
+        unsubscribe: () => {
+          listeners.delete(callback);
+        },
+      },
+    },
+  };
+};
+
+// Notify all listeners when auth state changes
+export function notifyAuthChange(event: string, session: NeonAuthSession | null) {
+  listeners.forEach((cb) => cb(event, session));
+}

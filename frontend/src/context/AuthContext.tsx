@@ -1,11 +1,19 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { AuthSession, User } from '@supabase/supabase-js';
-import { signIn, signUp, signOut, getSession, getCurrentUser, onAuthStateChange } from '../lib/supabase';
-import { profileAPI } from '../services/api'; // Import profileAPI
+import {
+  signIn,
+  signUp,
+  signOut,
+  getSession,
+  onAuthStateChange,
+  notifyAuthChange,
+  type NeonAuthUser,
+  type NeonAuthSession,
+} from '../lib/supabase';
+import { profileAPI } from '../services/api';
 
 interface AuthContextType {
-    user: User | null;
-    session: AuthSession | null;
+  user: NeonAuthUser | null;
+  session: NeonAuthSession | null;
   isAuthenticated: boolean;
   loading: boolean;
   error: string | null;
@@ -18,20 +26,19 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [session, setSession] = useState<AuthSession | null>(null);
+  const [user, setUser] = useState<NeonAuthUser | null>(null);
+  const [session, setSession] = useState<NeonAuthSession | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
 
   useEffect(() => {
-    // On mount, check for existing session
-    getSession().then(({ data, error }) => {
+    // On mount, check for existing session in localStorage
+    getSession().then(({ data }) => {
       if (data?.session) {
         setSession(data.session);
         setUser(data.session.user);
         setIsAuthenticated(true);
-        // We will fetch profile in a separate effect hook based on isAuthenticated
       } else {
         setSession(null);
         setUser(null);
@@ -39,34 +46,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       setLoading(false);
     });
+
     // Listen for auth state changes
     const { data: listener } = onAuthStateChange((event, session) => {
       if (session) {
         setSession(session);
         setUser(session.user);
         setIsAuthenticated(true);
-         // We will fetch profile in a separate effect hook based on isAuthenticated
       } else {
         setSession(null);
         setUser(null);
         setIsAuthenticated(false);
       }
     });
+
     return () => {
       listener?.subscription.unsubscribe();
     };
   }, []);
 
-  // New effect hook to fetch profile when authenticated
+  // Fetch profile when authenticated
   useEffect(() => {
-    if (isAuthenticated && user) { // Check user as well to ensure we have the ID
-      console.log("[AuthContext] isAuthenticated is true. Attempting to fetch profile...");
-      profileAPI.getProfile().catch(err => {
-        console.error("[AuthContext] Failed to fetch profile when isAuthenticated changed:", err);
-        // Optionally handle error
+    if (isAuthenticated && user) {
+      console.log('[AuthContext] isAuthenticated=true. Fetching profile...');
+      profileAPI.getProfile().catch((err) => {
+        console.error('[AuthContext] Failed to fetch profile:', err);
       });
     }
-  }, [isAuthenticated, user]); // Depend on isAuthenticated and user
+  }, [isAuthenticated, user]);
 
   const login = async (email: string, password: string) => {
     setLoading(true);
@@ -74,9 +81,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const { data, error } = await signIn(email, password);
       if (error) throw error;
-      if (data?.user) {
+      if (data?.user && data?.session) {
         setUser(data.user);
+        setSession(data.session);
         setIsAuthenticated(true);
+        notifyAuthChange('SIGNED_IN', data.session);
       }
     } catch (err: any) {
       setError(err.message || 'Login failed');
@@ -93,9 +102,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const { data, error } = await signUp(email, password);
       if (error) throw error;
-      if (data?.user) {
+      if (data?.user && data?.session) {
         setUser(data.user);
+        setSession(data.session);
         setIsAuthenticated(true);
+        notifyAuthChange('SIGNED_IN', data.session);
       }
     } catch (err: any) {
       setError(err.message || 'Registration failed');
@@ -114,6 +125,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(null);
       setSession(null);
       setIsAuthenticated(false);
+      notifyAuthChange('SIGNED_OUT', null);
     } catch (err: any) {
       setError(err.message || 'Logout failed');
       throw err;

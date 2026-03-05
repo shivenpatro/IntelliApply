@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { supabase } from '../lib/supabase';
+import { getAccessToken } from '../lib/supabase';
 
 // Base API URL configuration
 const API_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';  // Use VITE_API_BASE_URL
@@ -12,56 +12,25 @@ const axiosInstance = axios.create({
   baseURL: API_URL
 });
 
-// Add a request interceptor to include the Supabase JWT in all requests
+// Add a request interceptor to include the Neon Auth JWT in all requests
 axiosInstance.interceptors.request.use(
   async (config) => {
-    console.log('[Interceptor] Running request interceptor...');
     try {
-      let token = null;
-      let attempts = 0;
-      const maxAttempts = 3; // Try up to 3 times
-      const delayMs = 150; // Wait 150ms between attempts
-
-      while (!token && attempts < maxAttempts) {
-        attempts++;
-        console.log(`[Interceptor] Attempt ${attempts} to get Supabase session...`);
-        const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-
-        if (sessionError) {
-          console.error(`[Interceptor] Attempt ${attempts}: Error getting Supabase session:`, sessionError);
-          break;
-        } else {
-          console.log(`[Interceptor] Attempt ${attempts}: supabase.auth.getSession() response data:`, sessionData);
-          token = sessionData?.session?.access_token;
-          if (token) {
-            console.log(`[Interceptor] Attempt ${attempts}: Session and token found.`);
-            break; 
-          } else if (sessionData?.session) {
-            console.log(`[Interceptor] Attempt ${attempts}: Session found, but no access_token. Session:`, sessionData.session);
-          }
-          else {
-            console.log(`[Interceptor] Attempt ${attempts}: No active session object found in getSession() response.`);
-          }
-        }
-        if (!token && attempts < maxAttempts) {
-           console.log(`[Interceptor] Waiting ${delayMs}ms before next attempt...`);
-           await new Promise(resolve => setTimeout(resolve, delayMs));
-        }
-      }
+      const token = getAccessToken();
 
       if (token) {
         config.headers['Authorization'] = `Bearer ${token}`;
-        console.log('[Interceptor] Added Supabase JWT to Authorization header.');
+        console.log('[Interceptor] Added Neon Auth JWT to Authorization header.');
       } else {
-        console.warn('[Interceptor] No active Supabase session token found after multiple attempts, proceeding without token. This will likely lead to 401 errors for protected routes.');
+        console.warn('[Interceptor] No active session token found, proceeding without token.');
       }
 
       console.log(`[Interceptor] Making ${config.method?.toUpperCase() || 'GET'} request to: ${config.url}`);
       return config;
 
     } catch (interceptorError) {
-       console.error('[Interceptor] Unexpected error within request interceptor:', interceptorError);
-       return Promise.reject(interceptorError);
+      console.error('[Interceptor] Unexpected error within request interceptor:', interceptorError);
+      return Promise.reject(interceptorError);
     }
   },
   (error) => {
@@ -111,17 +80,17 @@ export const profileAPI = {
     try {
       const response = await axiosInstance.get('/api/profile');
       console.log('Profile data received:', response.data);
-      return response.data; 
+      return response.data;
     } catch (error) {
       console.error('Error fetching profile:', error);
-      throw error; 
+      throw error;
     }
   },
   updatePreferences: async (preferences: {
     desired_roles?: string,
     desired_locations?: string,
     min_salary?: number,
-    email?: string, 
+    email?: string,
     first_name?: string,
     last_name?: string
   }) => {
@@ -141,23 +110,23 @@ export const profileAPI = {
     console.log('[api.ts] Uploading resume to backend:', file.name);
     try {
       const formData = new FormData();
-      formData.append('file', file, file.name); 
+      formData.append('file', file, file.name);
       const response = await axiosInstance.post('/api/profile/resume', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
       console.log('Upload resume response:', response.data);
-      return response.data; 
+      return response.data;
     } catch (error) {
       console.error('Error uploading resume:', error);
       throw error;
     }
   },
-  addSkills: async (skills: Array<{name: string, level?: string}>) => {
+  addSkills: async (skills: Array<{ name: string, level?: string }>) => {
     console.log('[api.ts] Adding skills via backend:', skills);
-     try {
+    try {
       const response = await axiosInstance.post('/api/profile/skills', skills);
       console.log('Add skills response:', response.data);
-      return response.data; 
+      return response.data;
     } catch (error) {
       console.error('Error adding skills:', error);
       throw error;
@@ -174,7 +143,7 @@ export const profileAPI = {
       throw error;
     }
   },
-   addExperiences: async (experiences: Array<{
+  addExperiences: async (experiences: Array<{
     title: string,
     company: string,
     location?: string,
@@ -194,7 +163,7 @@ export const profileAPI = {
   },
   deleteExperience: async (experienceId: number) => {
     console.log(`[api.ts] Deleting experience ${experienceId} via backend...`);
-     try {
+    try {
       const response = await axiosInstance.delete(`/api/profile/experiences/${experienceId}`);
       console.log('Delete experience response status:', response.status);
       return response.status === 204;
@@ -226,7 +195,7 @@ export const jobsAPI = {
       return response.data;
     } catch (error) {
       console.error('Error fetching matched jobs:', error);
-      throw error; 
+      throw error;
     }
   },
   updateJobStatus: async (jobId: number, status: string) => {
@@ -234,7 +203,7 @@ export const jobsAPI = {
     try {
       const response = await axiosInstance.put(`/api/jobs/${jobId}/status`, { status }); // Corrected endpoint
       console.log('Update job status response:', response.data);
-      return response.data; 
+      return response.data;
     } catch (error) {
       console.error(`Error updating job ${jobId} status:`, error);
       throw error;
@@ -245,7 +214,7 @@ export const jobsAPI = {
     try {
       const response = await axiosInstance.post('/api/jobs/refresh');
       console.log('Refresh jobs response:', response.data);
-      return response.data; 
+      return response.data;
     } catch (error) {
       console.error('Error refreshing jobs:', error);
       throw error;
@@ -264,7 +233,7 @@ export const jobsAPI = {
   },
   getJobCounts: async () => {
     console.log('[api.ts] Getting job counts from backend...');
-     try {
+    try {
       const response = await axiosInstance.get('/api/jobs/counts');
       console.log('Job counts received:', response.data);
       return response.data;

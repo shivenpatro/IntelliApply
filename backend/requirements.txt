@@ -13,9 +13,12 @@ pyyaml==6.0.2
 postgrest==0.16.11
 supabase==2.4.5
 email-validator==2.2.0
-
-docling==2.39.0
-docling-core==2.39.0
+APScheduler==3.10.4
 google-generativeai==0.8.5
-
 pydantic-settings==2.10.1
+python-multipart==0.0.20
+firecrawl-py==1.5.0
+pypdf==5.1.0
+python-docx==1.1.2
+python-jose[cryptography]==3.3.0
+httpx==0.28.1
