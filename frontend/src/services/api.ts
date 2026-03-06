@@ -44,17 +44,29 @@ axiosInstance.interceptors.response.use(
     return response;
   },
   async (error) => {
+    const originalRequest = error.config;
     if (error.response) {
       // Log the error regardless
       console.error(`API Error: Status ${error.response.status}`, error.response.data);
 
-      // For 401 or 403, it's important to reject the promise so the UI can react
-      // (e.g., redirect to login, show specific auth error message)
-      // The previous behavior of resolving with mocked data would hide these critical errors.
+      if (error.response.status === 401 && !originalRequest._retry) {
+        originalRequest._retry = true;
+        try {
+          console.log('[Interceptor] 401 received, attempting to refresh session...');
+          const { getSession } = await import('../lib/supabase');
+          const { data } = await getSession();
+
+          if (data?.session?.token) {
+            console.log('[Interceptor] Session refreshed, retrying request...');
+            originalRequest.headers['Authorization'] = `Bearer ${data.session.token}`;
+            return axiosInstance(originalRequest);
+          }
+        } catch (refreshError) {
+          console.error('[Interceptor] Session refresh failed:', refreshError);
+        }
+      }
+
       if (error.response.status === 401 || error.response.status === 403) {
-        // Optionally, you could add logic here to attempt a token refresh if you have one,
-        // or trigger a logout via AuthContext if the token is definitively invalid.
-        // For now, just rejecting allows the calling code to handle it.
         console.error(`Authentication/Authorization error (${error.response.status}). The request was not successful.`);
       } else if (error.response.status === 500) {
         console.error('Server error (500):', error.response.data);

@@ -84,7 +84,14 @@ export const signUp = async (email: string, password: string) => {
     console.log('[NeonAuth] Sign up successful:', data);
 
     const user: NeonAuthUser = data.user;
-    const token: string = data.token || data.session?.token || '';
+
+    // Fetch the real JWT using the cookie that was just set
+    const jwtResponse = await fetch(`${NEON_AUTH_URL}/get-session`, {
+      method: 'GET',
+      credentials: 'include'
+    });
+    const jwtToken = jwtResponse.headers.get('set-auth-jwt');
+    const token: string = jwtToken || data.token || data.session?.token || '';
 
     if (user && token) {
       const session: NeonAuthSession = { token, user };
@@ -123,7 +130,14 @@ export const signIn = async (email: string, password: string) => {
     console.log('[NeonAuth] Sign in successful:', data);
 
     const user: NeonAuthUser = data.user;
-    const token: string = data.token || data.session?.token || '';
+
+    // Fetch the real JWT using the session cookie that was just set
+    const jwtResponse = await fetch(`${NEON_AUTH_URL}/get-session`, {
+      method: 'GET',
+      credentials: 'include'
+    });
+    const jwtToken = jwtResponse.headers.get('set-auth-jwt');
+    const token: string = jwtToken || data.token || data.session?.token || '';
 
     if (user && token) {
       const session: NeonAuthSession = { token, user };
@@ -168,6 +182,27 @@ export const signOut = async () => {
 };
 
 export const getSession = async () => {
+  try {
+    const jwtResponse = await fetch(`${NEON_AUTH_URL}/get-session`, {
+      method: 'GET',
+      credentials: 'include'
+    });
+    if (jwtResponse.ok) {
+      const data = await jwtResponse.json();
+      const jwtToken = jwtResponse.headers.get('set-auth-jwt');
+      if (jwtToken && data && data.user) {
+        const session: NeonAuthSession = { token: jwtToken, user: data.user };
+        saveSession(session);
+        return { data: { session }, error: null };
+      }
+    } else if (jwtResponse.status === 401 || jwtResponse.status === 403) {
+      clearSession();
+      return { data: { session: null }, error: null };
+    }
+  } catch (e) {
+    console.warn('[NeonAuth] Failed to refresh session from server', e);
+  }
+
   const session = loadSession();
   if (session) {
     return { data: { session }, error: null };
@@ -176,9 +211,9 @@ export const getSession = async () => {
 };
 
 export const getCurrentUser = async () => {
-  const session = loadSession();
-  if (session?.user) {
-    return { data: { user: session.user }, error: null };
+  const { data } = await getSession();
+  if (data?.session?.user) {
+    return { data: { user: data.session.user }, error: null };
   }
   return { data: { user: null }, error: null };
 };
