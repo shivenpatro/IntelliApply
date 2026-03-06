@@ -2,7 +2,7 @@ import axios from 'axios';
 import { getAccessToken } from '../lib/supabase';
 
 // Base API URL configuration
-const API_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';  // Use VITE_API_BASE_URL
+const API_URL = import.meta.env.VITE_API_BASE_URL || (import.meta.env.DEV ? 'http://localhost:8000' : 'https://intelliapply.onrender.com');
 
 // Configure axios defaults
 axios.defaults.baseURL = API_URL;
