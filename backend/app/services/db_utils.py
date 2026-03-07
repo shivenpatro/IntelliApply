@@ -15,36 +15,36 @@ async def save_jobs_to_db(jobs: list, db: Session = None): # db parameter kept f
         processed_urls_in_batch = set()
 
         for job_data in jobs:
-        raw_url = job_data.get("url")
-        if not raw_url:
-            logger.warning(f"Skipping job due to missing URL: {job_data.get('title', 'N/A')}")
-            continue
+            raw_url = job_data.get("url")
+            if not raw_url:
+                logger.warning(f"Skipping job due to missing URL: {job_data.get('title', 'N/A')}")
+                continue
 
-        parsed_url = urlparse(raw_url)
-        query_params = parse_qs(parsed_url.query)
-        
-        tracking_params_to_remove = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content', 'gclid', 'fbclid', 'mc_cid', 'mc_eid', '_ga']
-        filtered_query_params = {k: v for k, v in query_params.items() if k.lower() not in tracking_params_to_remove}
-        
-        canonical_url = urlunparse(parsed_url._replace(query=urlencode(filtered_query_params, doseq=True)))
-        
-        if not canonical_url:
-            logger.warning(f"Skipping job due to invalid canonical URL for raw URL: {raw_url}")
-            continue
+            parsed_url = urlparse(raw_url)
+            query_params = parse_qs(parsed_url.query)
+            
+            tracking_params_to_remove = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content', 'gclid', 'fbclid', 'mc_cid', 'mc_eid', '_ga']
+            filtered_query_params = {k: v for k, v in query_params.items() if k.lower() not in tracking_params_to_remove}
+            
+            canonical_url = urlunparse(parsed_url._replace(query=urlencode(filtered_query_params, doseq=True)))
+            
+            if not canonical_url:
+                logger.warning(f"Skipping job due to invalid canonical URL for raw URL: {raw_url}")
+                continue
 
-        job_data["url"] = canonical_url
+            job_data["url"] = canonical_url
 
-        if canonical_url in processed_urls_in_batch:
-            logger.info(f"Skipping duplicate job (already processed in this batch) for URL: {canonical_url}")
-            continue
-        
-        processed_urls_in_batch.add(canonical_url)
+            if canonical_url in processed_urls_in_batch:
+                logger.info(f"Skipping duplicate job (already processed in this batch) for URL: {canonical_url}")
+                continue
+            
+            processed_urls_in_batch.add(canonical_url)
 
-        existing_job = local_db.query(Job).filter(Job.url == canonical_url).first()
-        if not existing_job:
-            job = Job(**job_data)
-            local_db.add(job)
-            new_jobs_count +=1
+            existing_job = local_db.query(Job).filter(Job.url == canonical_url).first()
+            if not existing_job:
+                job = Job(**job_data)
+                local_db.add(job)
+                new_jobs_count +=1
     
     if new_jobs_count > 0:
         try:
