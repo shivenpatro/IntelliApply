@@ -6,12 +6,15 @@ from urllib.parse import urlparse, urlunparse, parse_qs, urlencode
 
 logger = logging.getLogger(__name__)
 
-async def save_jobs_to_db(jobs: list, db: Session): # jobs is a list of dicts
+async def save_jobs_to_db(jobs: list, db: Session = None): # db parameter kept for backward compatibility but ignored
     """Save scraped jobs to the database, handling duplicates based on canonical URL."""
-    new_jobs_count = 0
-    processed_urls_in_batch = set()
+    from app.db.database import SessionLocal
+    local_db = SessionLocal()
+    try:
+        new_jobs_count = 0
+        processed_urls_in_batch = set()
 
-    for job_data in jobs:
+        for job_data in jobs:
         raw_url = job_data.get("url")
         if not raw_url:
             logger.warning(f"Skipping job due to missing URL: {job_data.get('title', 'N/A')}")
@@ -35,26 +38,26 @@ async def save_jobs_to_db(jobs: list, db: Session): # jobs is a list of dicts
             logger.info(f"Skipping duplicate job (already processed in this batch) for URL: {canonical_url}")
             continue
         
-        processed_urls_in_batch.add(canonical_url) # Add after ensuring it's not skipped
+        processed_urls_in_batch.add(canonical_url)
 
-        existing_job = db.query(Job).filter(Job.url == canonical_url).first()
+        existing_job = local_db.query(Job).filter(Job.url == canonical_url).first()
         if not existing_job:
             job = Job(**job_data)
-            db.add(job)
+            local_db.add(job)
             new_jobs_count +=1
     
     if new_jobs_count > 0:
         try:
-            db.commit() # Commit after processing all jobs in the batch
+            local_db.commit() # Commit after processing all jobs in the batch
             logger.info(f"Added {new_jobs_count} new jobs to the database.")
-        except IntegrityError as e: # Specific error for unique constraint violations
-            db.rollback()
-            logger.warning(f"Database integrity error during batch save (likely a duplicate URL missed by initial check): {e}")
-            # Optionally, you could try saving jobs one by one here if batch commit fails,
-            # but the unique constraint should ideally prevent most issues if URLs are truly canonical.
+        except IntegrityError as e: 
+            local_db.rollback()
+            logger.warning(f"Database integrity error during batch save: {e}")
         except Exception as e:
-            db.rollback()
+            local_db.rollback()
             logger.error(f"Unexpected error during batch save of jobs: {e}", exc_info=True)
-            raise # Re-raise other unexpected errors
+            raise
     else:
         logger.info("No new jobs to add to the database from this batch.")
+    finally:
+        local_db.close()
