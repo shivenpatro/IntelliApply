@@ -69,7 +69,7 @@ async def upload_resume(background_tasks: BackgroundTasks, file: UploadFile = Fi
     db.refresh(profile)
 
     # Trigger resume parsing in the background — pass bytes directly, no cloud storage
-    background_tasks.add_task(parse_resume, file_bytes, file_extension, profile.id, db)
+    background_tasks.add_task(parse_resume, file_bytes, file_extension, profile.id)
 
     return {"success": True, "message": "Resume uploaded and processing started"}
 

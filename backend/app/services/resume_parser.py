@@ -108,7 +108,7 @@ def _extract_text_from_docx(file_bytes: bytes) -> str:
         return ""
 
 
-async def parse_resume(file_bytes: bytes, file_extension: str, profile_id: str, db: Session):
+async def parse_resume(file_bytes: bytes, file_extension: str, profile_id: str):
     """
     Parse a resume from in-memory bytes (no cloud storage needed).
 
@@ -131,6 +131,9 @@ async def parse_resume(file_bytes: bytes, file_extension: str, profile_id: str, 
         if not gemini_model:
             logger.error("[ResumeParser] Gemini model not configured. Aborting.")
             return
+
+        from app.db.database import SessionLocal
+        db = SessionLocal()
 
         # ── Step 1: Extract raw text based on file type ──────────────────────
         ext = file_extension.lower()
@@ -267,7 +270,7 @@ async def parse_resume(file_bytes: bytes, file_extension: str, profile_id: str, 
         except Exception:
             pass
     finally:
-        if db:
+        if 'db' in locals() and db:
             try:
                 db.close()
                 logger.debug("[ResumeParser] DB session closed.")
