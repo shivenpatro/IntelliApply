@@ -15,7 +15,7 @@ logging.basicConfig(level=logging.INFO)
 
 # --- Gemini API Configuration ---
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-GEMINI_MODEL_NAME = "gemini-2.5-flash-lite-preview-06-17"
+GEMINI_MODEL_NAME = "gemini-1.5-flash"
 
 if not GEMINI_API_KEY:
     logger.error("GEMINI_API_KEY is not set. Resume parsing will not work.")
@@ -31,7 +31,7 @@ else:
 
 # Extraction prompt — Gemini receives raw extracted text and returns structured JSON
 EXTRACTION_PROMPT_TEMPLATE = """
-You are a professional resume parser. Extract the following information from the resume text below and return it as a valid JSON object only (no markdown, no explanation, no extra text):
+You are a professional resume parser. Extract the following information from the resume attached and return it as a valid JSON object only (no markdown, no explanation, no extra text):
 
 {{
   "full_name": "Full name of the person",
@@ -53,7 +53,7 @@ Rules:
 - start_date / end_date: use YYYY-MM-DD format; if only year is given use YYYY-01-01; use "Present" for current roles
 - Return ONLY the JSON object — no markdown fences, no commentary
 
-Resume Text:
+Resume Text (if provided):
 {resume_text}
 """
 
@@ -145,18 +145,23 @@ async def parse_resume(file_bytes: bytes, file_extension: str, profile_id: str):
             logger.error(f"[ResumeParser] Unsupported file type: .{ext}")
             return
 
-        if not raw_text.strip():
+        payload_content = []
+        prompt = EXTRACTION_PROMPT_TEMPLATE.format(resume_text=raw_text)
+        
+        # If pypdf failed (e.g., image-based PDF), use Gemini Vision natively
+        if not raw_text.strip() and ext == "pdf":
+            logger.info("[ResumeParser] pypdf extracted empty string. Falling back to Gemini native PDF vision processing.")
+            payload_content = [{"mime_type": "application/pdf", "data": file_bytes}, prompt]
+        elif not raw_text.strip():
             logger.error("[ResumeParser] No text extracted from resume. Cannot proceed.")
             return
+        else:
+            logger.info(f"[ResumeParser] Extracted {len(raw_text)} chars. Sending text to Gemini...")
+            payload_content = [prompt]
 
-        logger.info(f"[ResumeParser] Extracted {len(raw_text)} chars. Sending to Gemini...")
-        logger.debug(f"[ResumeParser] Text sample (first 500 chars): {raw_text[:500]}")
-
-        # ── Step 2: Send raw text to Gemini for structured extraction ────────
-        prompt = EXTRACTION_PROMPT_TEMPLATE.format(resume_text=raw_text)
-
+        # ── Step 2: Send to Gemini for structured extraction ────────
         try:
-            gemini_response = await gemini_model.generate_content_async(prompt)
+            gemini_response = await gemini_model.generate_content_async(payload_content)
         except Exception as gemini_err:
             logger.error(f"[ResumeParser] Gemini API call failed: {gemini_err}", exc_info=True)
             return
