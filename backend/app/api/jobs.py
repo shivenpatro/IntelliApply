@@ -74,6 +74,19 @@ async def update_job_status(
 
     return {"success": True}
 
+async def perform_job_refresh(user_id: str, task_id: str, task_statuses_ref: dict):
+    try:
+        # Run scraper first
+        await trigger_job_scraping(task_id=task_id, task_statuses_ref=task_statuses_ref)
+        # Verify scraping didn't explicitly fail
+        if task_statuses_ref.get(task_id, {}).get("status") == "failed":
+            return
+        # Run matcher for this specific user
+        await match_jobs_for_user(user_id=user_id, task_id=task_id, task_statuses_ref=task_statuses_ref)
+    except Exception as e:
+        logger.error(f"Error in perform_job_refresh: {e}")
+        task_statuses_ref[task_id] = {"status": "failed", "message": f"An unexpected error occurred: {str(e)}"}
+
 @router.post("/refresh", status_code=status.HTTP_202_ACCEPTED, response_model=Dict[str, str])
 async def refresh_jobs_and_matches_api(background_tasks: BackgroundTasks, current_user: User = Depends(get_current_active_user)):
     task_id = uuid.uuid4().hex
@@ -81,12 +94,8 @@ async def refresh_jobs_and_matches_api(background_tasks: BackgroundTasks, curren
     
     logger.info(f"User {current_user.email} triggered job refresh. Task ID: {task_id}")
 
-    # Pass task_id to background tasks
-    # Note: The actual functions trigger_job_scraping and match_jobs_for_user
-    # will need to be modified to accept task_id and update task_statuses.
-    # For now, we'll queue them. The status updates will be added in subsequent steps.
-    background_tasks.add_task(trigger_job_scraping, task_id=task_id, task_statuses_ref=task_statuses)
-    background_tasks.add_task(match_jobs_for_user, user_id=current_user.supabase_id, task_id=task_id, task_statuses_ref=task_statuses)
+    # Use orchestrator to run sequentially
+    background_tasks.add_task(perform_job_refresh, user_id=current_user.supabase_id, task_id=task_id, task_statuses_ref=task_statuses)
 
     return {"task_id": task_id, "message": "Job refresh process started. Poll status endpoint for updates."}
 
