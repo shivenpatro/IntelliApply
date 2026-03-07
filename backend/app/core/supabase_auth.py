@@ -11,7 +11,8 @@ import logging
 import uuid
 
 import httpx
-from jose import jwt, jwk, JWTError
+import jwt
+from jwt import PyJWKClient
 from fastapi import Depends, HTTPException, status, Request
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError
@@ -30,101 +31,27 @@ NEON_AUTH_URL = os.getenv(
 )
 JWKS_URL = f"{NEON_AUTH_URL}/.well-known/jwks.json"
 
-# Cache for JWKS keys to avoid fetching on every request
-_jwks_cache: dict | None = None
+# PyJWKClient handles fetching and caching JWKS keys automatically
+_jwks_client: PyJWKClient | None = None
 
-
-async def _get_jwks() -> dict:
-    """
-    Fetch and cache JWKS (JSON Web Key Set) from the Neon Auth endpoint.
-    Keys are cached in memory to avoid hitting the endpoint on every request.
-    """
-    global _jwks_cache
-    if _jwks_cache is not None:
-        return _jwks_cache
-
-    try:
-        async with httpx.AsyncClient() as client:
-            response = await client.get(JWKS_URL, timeout=10.0)
-            response.raise_for_status()
-            _jwks_cache = response.json()
-            logger.info(f"[NeonAuth] Fetched JWKS from {JWKS_URL}")
-            return _jwks_cache
-    except Exception as e:
-        logger.error(f"[NeonAuth] Failed to fetch JWKS from {JWKS_URL}: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Unable to verify authentication. Please try again later.",
-        )
-
-
-def _invalidate_jwks_cache():
-    """Clear the JWKS cache to force a fresh fetch on next verification."""
-    global _jwks_cache
-    _jwks_cache = None
-    logger.info("[NeonAuth] JWKS cache invalidated.")
-
+def _get_jwks_client() -> PyJWKClient:
+    global _jwks_client
+    if _jwks_client is None:
+        _jwks_client = PyJWKClient(JWKS_URL, cache_keys=True)
+    return _jwks_client
 
 async def _verify_neon_auth_token(token: str) -> dict:
     """
     Verify a JWT issued by Neon Auth using the JWKS endpoint.
     Returns the decoded token payload (claims).
     """
-    jwks_data = await _get_jwks()
-    keys = jwks_data.get("keys", [])
-
-    if not keys:
-        logger.error("[NeonAuth] No keys found in JWKS response.")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Authentication configuration error.",
-        )
-
-    # Get the token header to find the key ID (kid)
+    client = _get_jwks_client()
     try:
-        unverified_header = jwt.get_unverified_header(token)
-    except JWTError as e:
-        logger.warning(f"[NeonAuth] Invalid token header: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid authentication token.",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-
-    token_kid = unverified_header.get("kid")
-
-    # Find the matching key
-    matching_key = None
-    for key_data in keys:
-        if key_data.get("kid") == token_kid:
-            matching_key = key_data
-            break
-
-    if not matching_key:
-        # Key might have rotated — invalidate cache and retry once
-        _invalidate_jwks_cache()
-        jwks_data = await _get_jwks()
-        keys = jwks_data.get("keys", [])
-        for key_data in keys:
-            if key_data.get("kid") == token_kid:
-                matching_key = key_data
-                break
-
-    if not matching_key:
-        logger.warning(f"[NeonAuth] No matching key found for kid={token_kid}")
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid authentication token (key not found).",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-
-    # Construct the public key and verify the token
-    try:
-        public_key = jwk.construct(matching_key)
+        signing_key = client.get_signing_key_from_jwt(token)
         payload = jwt.decode(
             token,
-            public_key,
-            algorithms=[matching_key.get("alg", "RS256")],
+            signing_key.key,
+            algorithms=["EdDSA", "RS256"],
             options={
                 "verify_aud": False,  # Neon Auth may not set audience
                 "verify_iss": False,  # Flexible issuer checking
@@ -132,8 +59,7 @@ async def _verify_neon_auth_token(token: str) -> dict:
         )
         logger.info(f"[NeonAuth] Token verified for sub={payload.get('sub')}")
         return payload
-
-    except JWTError as e:
+    except Exception as e:
         logger.warning(f"[NeonAuth] Token verification failed: {e}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

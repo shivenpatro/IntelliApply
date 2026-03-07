@@ -18,6 +18,7 @@ python-multipart==0.0.20
 firecrawl-py==1.5.0
 pypdf==5.1.0
 python-docx==1.1.2
-python-jose[cryptography]==3.3.0
+PyJWT>=2.8.0
+cryptography>=41.0.0
 httpx==0.28.1
 scikit-learn==1.5.2
