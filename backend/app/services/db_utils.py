@@ -46,18 +46,18 @@ async def save_jobs_to_db(jobs: list, db: Session = None): # db parameter kept f
                 local_db.add(job)
                 new_jobs_count +=1
     
-    if new_jobs_count > 0:
-        try:
-            local_db.commit() # Commit after processing all jobs in the batch
-            logger.info(f"Added {new_jobs_count} new jobs to the database.")
-        except IntegrityError as e: 
-            local_db.rollback()
-            logger.warning(f"Database integrity error during batch save: {e}")
-        except Exception as e:
-            local_db.rollback()
-            logger.error(f"Unexpected error during batch save of jobs: {e}", exc_info=True)
-            raise
-    else:
-        logger.info("No new jobs to add to the database from this batch.")
+        if new_jobs_count > 0:
+            try:
+                local_db.commit() # Commit after processing all jobs in the batch
+                logger.info(f"Added {new_jobs_count} new jobs to the database.")
+            except IntegrityError as e: 
+                local_db.rollback()
+                logger.warning(f"Database integrity error during batch save: {e}")
+            except Exception as e:
+                local_db.rollback()
+                logger.error(f"Unexpected error during batch save of jobs: {e}", exc_info=True)
+                raise
+        else:
+            logger.info("No new jobs to add to the database from this batch.")
     finally:
         local_db.close()
