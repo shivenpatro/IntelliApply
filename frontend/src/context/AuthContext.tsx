@@ -3,6 +3,7 @@ import {
   signIn,
   signUp,
   signOut,
+  signInWithGoogle,
   getSession,
   onAuthStateChange,
   notifyAuthChange,
@@ -19,6 +20,7 @@ interface AuthContextType {
   error: string | null;
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string) => Promise<void>;
+  loginWithGoogle: () => Promise<void>;
   logout: () => Promise<void>;
   clearError: () => void;
 }
@@ -117,6 +119,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const loginWithGoogle = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const { error } = await signInWithGoogle();
+      if (error) throw error;
+    } catch (err: any) {
+      setError(err.message || 'Google Login failed');
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const logout = async () => {
     setLoading(true);
     setError(null);
@@ -144,6 +160,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     error,
     login,
     register,
+    loginWithGoogle,
     logout,
     clearError,
   };

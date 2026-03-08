@@ -152,6 +152,39 @@ export const signIn = async (email: string, password: string) => {
   }
 };
 
+export const signInWithGoogle = async () => {
+  try {
+    console.log('[NeonAuth] Initiating Google Sign-In...');
+    const response = await fetch(`${NEON_AUTH_URL}/sign-in/social`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        provider: 'google',
+        callbackURL: `${window.location.origin}/dashboard`,
+        newUserCallbackURL: `${window.location.origin}/profile`
+      }),
+      credentials: 'include',
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data?.message || data?.error || `Google sign-in failed (${response.status})`);
+    }
+
+    if (data?.url) {
+      // Redirect seamlessly to Google accounts
+      window.location.href = data.url;
+      return { error: null };
+    }
+
+    throw new Error('No redirect URL returned by Auth Provider');
+  } catch (error) {
+    console.error('[NeonAuth] signInWithGoogle exception:', error);
+    return { error: error as Error };
+  }
+};
+
 export const signOut = async () => {
   try {
     console.log('[NeonAuth] Signing out...');
