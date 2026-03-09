@@ -15,7 +15,7 @@ logging.basicConfig(level=logging.INFO)
 
 # --- Gemini API Configuration ---
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-GEMINI_MODEL_NAME = "gemini-1.5-flash"
+GEMINI_MODEL_NAME = "gemini-2.5-flash"
 
 if not GEMINI_API_KEY:
     logger.error("GEMINI_API_KEY is not set. Resume parsing will not work.")
