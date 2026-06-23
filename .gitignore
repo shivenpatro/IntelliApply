@@ -60,8 +60,27 @@ logs/
 /tmp/
 /temp/
 
-# Uploads
+# Uploads (user-uploaded files — never commit)
 backend/uploads/
+
+# Generated ML artifacts
+*.pkl
+*.joblib
+
+# Temporary scraping/debug HTML dumps
+temp_*.html
+backend/temp_*.html
+
+# Personal files that should never be in a public repo
+resume.pdf
+*.pdf
+
+# Root-level test scripts and output files
+test_*.py
+test_out*.txt
+
+# Duplicate root requirements (real one lives in backend/)
+/requirements.txt
 
 # Virtual environments
 .venv/
