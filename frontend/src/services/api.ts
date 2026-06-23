@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { getAccessToken } from '../lib/supabase';
+import { getAccessToken } from '../lib/neon';
 
 // Base API URL configuration
 const API_URL = import.meta.env.VITE_API_BASE_URL || (import.meta.env.DEV ? 'http://localhost:8000' : 'https://intelliapply.onrender.com');
@@ -53,7 +53,7 @@ axiosInstance.interceptors.response.use(
         originalRequest._retry = true;
         try {
           console.log('[Interceptor] 401 received, attempting to refresh session...');
-          const { getSession } = await import('../lib/supabase');
+          const { getSession } = await import('../lib/neon');
           const { data } = await getSession();
 
           if (data?.session?.token) {

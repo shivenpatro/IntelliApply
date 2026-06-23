@@ -20,18 +20,18 @@ from app.db.models import Base # To ensure models are loaded
 
 async def main():
     # --- IMPORTANT ---
-    # Replace with the actual Supabase User ID (UUID string) of the user you want to test.
+    # Replace with the actual Neon Auth User ID (UUID string) of the user you want to test.
     # This is the user whose profile will be used for matching.
     # Example for clinetestuser005@example.com (based on previous logs):
-    test_user_supabase_id = "23298ca1-a583-4045-83d2-f6e88417333b" 
+    test_user_neon_id = "23298ca1-a583-4045-83d2-f6e88417333b" 
     
-    print(f"Attempting to match jobs for user with Supabase ID: {test_user_supabase_id}")
+    print(f"Attempting to match jobs for user with Neon Auth ID: {test_user_neon_id}")
     
     # Ensure tables are created (optional, usually handled by main app startup)
     # Base.metadata.create_all(bind=engine) 
     
-    await match_jobs_for_user(test_user_supabase_id)
-    print(f"Finished job matching test for user {test_user_supabase_id}.")
+    await match_jobs_for_user(test_user_neon_id)
+    print(f"Finished job matching test for user {test_user_neon_id}.")
 
 if __name__ == "__main__":
     # Load .env variables if running script directly (especially DATABASE_URL)

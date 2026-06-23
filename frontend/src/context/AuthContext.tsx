@@ -9,7 +9,7 @@ import {
   notifyAuthChange,
   type NeonAuthUser,
   type NeonAuthSession,
-} from '../lib/supabase';
+} from '../lib/neon';
 import { profileAPI } from '../services/api';
 
 interface AuthContextType {

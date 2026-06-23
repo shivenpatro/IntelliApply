@@ -5,7 +5,7 @@ import uuid # For generating task IDs
 import logging # For logging
 
 from app.core.schemas import JobWithMatch, UserJobMatchUpdate
-from app.core.supabase_auth import get_current_active_user
+from app.core.neon_auth import get_current_active_user
 from app.db.database import get_db
 from app.db.models import User, Job, UserJobMatch, JobStatus
 from app.services.job_scraper import trigger_job_scraping # This will need to accept task_id and update status

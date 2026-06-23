@@ -1,13 +1,8 @@
 # IntelliApply: Apply smarter, not harder.
 
-Live Website Link:- https://intelli-apply.vercel.app/ (backend is down for now because of Render free tier 512mb is not enough for the docling packages)
+IntelliApply is a full-stack web application designed to automate and personalize the job search process. It takes a user's resume and preferences, scrapes job boards, uses AI to find and rank the most relevant job postings, and presents them on a personalized dashboard.
 
 ## Project Overview
-![image](https://github.com/user-attachments/assets/1760cac9-353c-460f-8ce9-ccc8d263eafd)
-![image](https://github.com/user-attachments/assets/529232e7-bfbd-4d1c-b471-e9c437533792)
-
-
-IntelliApply is a full-stack web application designed to automate and personalize the job search process. It takes a user's resume and preferences, scrapes job boards, uses AI to find and rank the most relevant job postings, and presents them to the user on a dashboard.
 
 ### Core Problem Addressed
 
@@ -15,95 +10,138 @@ Job seekers waste excessive time manually searching multiple job boards, filteri
 
 ### Core Solution
 
-IntelliApply acts as an AI co-pilot. It parses user profiles/resumes, automatically discovers relevant jobs via web scraping, uses AI (NLP/ML) for accurate profile-to-job matching beyond simple keywords, and displays prioritized results, significantly reducing manual effort.
+IntelliApply acts as an AI co-pilot. It parses user profiles/resumes, automatically discovers relevant jobs via web scraping, uses AI (TF-IDF + Cosine Similarity) for accurate profile-to-job matching, and displays prioritized results — significantly reducing manual effort.
 
-![image](https://github.com/user-attachments/assets/2927ca97-f01c-4d95-a64f-b81ed395e4b3)
+### Key Features
 
+- **User Authentication** — Secure Sign-up, Login, and Google OAuth via Neon Auth (Better Auth)
+- **Profile Creation & Resume Upload** — Upload a PDF/DOCX resume to auto-populate skills and experience
+- **Resume Parsing** — Extracts key entities from resumes using NLP
+- **Web Scraping Engine** — Scrapes job postings from HackerNews and WeWorkRemotely
+- **AI Matching Engine** — Matches your profile against jobs using TF-IDF vectorization and Cosine Similarity
+- **Job Dashboard** — Displays ranked job postings sorted by relevance
+- **Job Tracking** — Mark jobs as *Interested*, *Applied*, or *Ignored*
 
-### Key Features (MVP)
-
-- User Authentication: Secure Sign-up and Login functionality via Supabase
-- Profile Creation & Resume Upload: Upload resume (PDF/DOCX) and set preferences
-- Resume Parsing: Extract key information from resumes
-- Web Scraping Engine: Scrape job postings from pre-defined sources
-- AI Matching Engine: Match user profile with job postings
-- Job Dashboard: Display ranked job postings
-- Basic Job Tracking: Mark jobs as 'Interested', 'Applied', or 'Ignore'
+---
 
 ## Technology Stack
 
-- **Frontend:** React.js with Vite, Tailwind CSS
-- **Backend:** Python with FastAPI
-- **Database:** PostgreSQL
-- **Authentication:** Supabase Auth
-- **Resume Parsing:** PyPDF2/python-docx, spaCy
-- **Web Scraping:** BeautifulSoup4, requests
-- **AI Matching:** scikit-learn for TF-IDF and Cosine Similarity
+| Layer | Technology |
+|---|---|
+| **Frontend** | React.js (Vite), TypeScript, Tailwind CSS |
+| **Backend** | Python, FastAPI |
+| **Database** | PostgreSQL via **Neon** |
+| **Authentication** | **Neon Auth** (Better Auth) |
+| **Resume Parsing** | PyPDF2 / python-docx, spaCy, Affinda API |
+| **Web Scraping** | BeautifulSoup4, requests |
+| **AI Matching** | scikit-learn (TF-IDF + Cosine Similarity) |
+| **Task Scheduling** | APScheduler (AsyncIOScheduler) |
+
+---
 
 ## Setup Instructions
 
 ### Prerequisites
 
 - Python 3.8+
-- Node.js 14+ and npm/yarn
-- PostgreSQL
+- Node.js 16+ and npm
+- A [Neon](https://neon.tech) account (for PostgreSQL + Auth)
 
-### Initial Setup
+### 1. Clone and install dependencies
 
-1. Set up the backend:
-   ```
-   cd backend
-   python -m venv venv
-   venv\Scripts\activate  # Windows
-   # OR
-   source venv/bin/activate  # macOS/Linux
-   pip install -r requirements.txt
-   ```
+```bash
+# Backend
+cd backend
+python -m venv .venv
+.venv\Scripts\activate       # Windows
+# source .venv/bin/activate  # macOS/Linux
+pip install -r requirements.txt
 
-2. Set up the frontend:
-   ```
-   cd frontend
-   npm install
-   ```
-
-3. Set up environment variables:
-   - Create `.env` files in both backend and frontend directories
-   - See [SUPABASE_AUTH_SETUP.md](SUPABASE_AUTH_SETUP.md) for required variables
-
-4. Run the database migration:
-   ```
-   cd backend
-   python -m migrations.add_supabase_id
-   ```
-
-### Running the Application
-
-#### Option 1: Start both servers with a single command
-
-From the project root directory:
+# Frontend (new terminal)
+cd frontend
+npm install
 ```
+
+### 2. Configure environment variables
+
+**`backend/.env`** — already exists with working Neon credentials:
+```env
+DATABASE_URL=postgresql://<user>:<password>@<neon-host>/neondb?sslmode=require
+NEON_AUTH_URL=https://<your-neon-auth-endpoint>/auth
+SECRET_KEY=<your-secret-key>
+FRONTEND_URL=http://localhost:5174
+UPLOAD_DIRECTORY=./uploads
+GEMINI_API_KEY=<optional>
+AFFINDA_API_KEY=<optional>
+```
+
+**`frontend/.env`** — already exists with working Neon credentials:
+```env
+VITE_API_URL=http://localhost:8000
+VITE_NEON_AUTH_URL=https://<your-neon-auth-endpoint>/auth
+```
+
+### 3. Run the application
+
+#### Option A — Single command (recommended)
+
+From the project root:
+```bash
 npm start
 ```
 
-This will start both the backend and frontend servers concurrently.
+This starts both the FastAPI backend and the Vite frontend server concurrently.
 
-#### Option 2: Start servers individually
+#### Option B — Run individually
 
-1. Start the backend server:
-   ```
-   cd backend
-   uvicorn app.main:app --reload
-   ```
+```bash
+# Terminal 1 — Backend
+cd backend
+uvicorn app.main:app --reload
 
-2. Start the frontend server:
-   ```
-   cd frontend
-   npm run dev
-   ```
+# Terminal 2 — Frontend
+cd frontend
+npm run dev
+```
+
+The frontend runs on `http://localhost:5174` and the backend API on `http://localhost:8000`.
+
+---
+
+## Project Structure
+
+```
+IntelliApply/
+├── backend/
+│   ├── app/
+│   │   ├── api/          # FastAPI route handlers (auth, jobs, profile)
+│   │   ├── core/         # Config, schemas, security, Neon Auth JWT verification
+│   │   ├── db/           # SQLAlchemy models and database session
+│   │   └── services/     # Business logic: scraping, matching, resume parsing
+│   └── requirements.txt
+├── frontend/
+│   └── src/
+│       ├── components/   # Shared UI components (Navbar, Footer, etc.)
+│       ├── context/      # AuthContext (Neon Auth session management)
+│       ├── lib/          # neon.ts — Neon Auth client library
+│       ├── pages/        # Page components (Dashboard, Profile, Login, etc.)
+│       └── services/     # api.ts — Axios API client
+├── package.json          # Root scripts to start both servers
+└── README.md
+```
+
+---
 
 ## Authentication
 
-This project uses Supabase for authentication. See [SUPABASE_AUTH_SETUP.md](SUPABASE_AUTH_SETUP.md) for detailed setup instructions.
+This project uses **Neon Auth** (powered by Better Auth) for all authentication:
+
+- The frontend communicates directly with the Neon Auth REST API for sign-up, sign-in, and Google OAuth.
+- JWTs issued by Neon Auth are stored in `localStorage` and sent with every backend API request via the `Authorization: Bearer <token>` header.
+- The backend verifies these JWTs using the Neon Auth JWKS endpoint (`app/core/neon_auth.py`).
+- On first authenticated request, the backend auto-creates a local user record + empty profile in the database.
+
+---
 
 ## License
 

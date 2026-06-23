@@ -11,7 +11,7 @@ We keep the /auth/me endpoint so the frontend can fetch the current user info.
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
-from app.core.supabase_auth import get_current_active_user
+from app.core.neon_auth import get_current_active_user
 from app.db.models import User as DBUser
 from app.core.schemas import User as PydanticUser
 from app.db.database import get_db

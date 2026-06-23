@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 
 from app.core.config import settings
 from app.core.schemas import Profile, ProfileCreate, ProfileUpdate, Skill, SkillCreate, Experience, ExperienceCreate, ResumeUploadResponse
-from app.core.supabase_auth import get_current_active_user
+from app.core.neon_auth import get_current_active_user
 from app.db.database import get_db
 from app.db.models import User, Profile as ProfileModel, Skill as SkillModel, Experience as ExperienceModel
 from app.services.resume_parser import parse_resume
