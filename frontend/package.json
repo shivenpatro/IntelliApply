@@ -11,6 +11,7 @@
   "dependencies": {
     "@headlessui/react": "^2.2.1",
     "@heroicons/react": "^2.2.0",
+    "@neondatabase/auth": "^0.4.2-beta",
     "@react-three/drei": "^10.0.6",
     "@react-three/fiber": "^9.1.2",
     "@splinetool/react-spline": "^4.0.0",

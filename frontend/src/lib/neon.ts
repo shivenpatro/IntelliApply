@@ -1,18 +1,19 @@
 /**
  * Neon Auth (Better Auth) client library.
  *
- * Handles sign-up, sign-in, sign-out, and session management
- * by talking directly to the Neon Auth REST API.
- *
- * Zero Supabase dependency — fully migrated to Neon.
+ * Uses the official @neondatabase/auth SDK to seamlessly handle
+ * OAuth callbacks, third-party cookie bypasses, and session state.
  */
 
-// ─── Neon Auth Configuration ────────────────────────────────────────────────
-const NEON_AUTH_URL =
-  import.meta.env.VITE_NEON_AUTH_URL ||
+import { createInternalNeonAuth } from '@neondatabase/auth';
+
+const NEON_AUTH_URL = import.meta.env.VITE_NEON_AUTH_URL ||
   'https://ep-green-glade-ajuf7urf.neonauth.c-3.us-east-2.aws.neon.tech/neondb/auth';
 
-// ─── Session storage helpers ─────────────────────────────────────────────────
+// Initialize the official Neon Auth SDK
+const neonAuth = createInternalNeonAuth(NEON_AUTH_URL);
+const authClient = neonAuth.adapter;
+
 const SESSION_KEY = 'neon_auth_session';
 
 export interface NeonAuthUser {
@@ -21,8 +22,8 @@ export interface NeonAuthUser {
   name: string;
   image?: string | null;
   emailVerified: boolean;
-  createdAt: string;
-  updatedAt: string;
+  createdAt: string | Date;
+  updatedAt: string | Date;
 }
 
 export interface NeonAuthSession {
@@ -47,138 +48,72 @@ function loadSession(): NeonAuthSession | null {
 
 function clearSession() {
   localStorage.removeItem(SESSION_KEY);
-  // Also clear any leftover Supabase/old auth keys
-  Object.keys(localStorage).forEach((key) => {
-    if (key.includes('supabase') || key.includes('sb-')) {
-      localStorage.removeItem(key);
-    }
-  });
 }
 
-// ─── Auth API calls to Neon Auth ─────────────────────────────────────────────
+// Keep a local cached token for synchronous access by axios
+let memoryToken: string | null = loadSession()?.token || null;
 
 export const signUp = async (email: string, password: string) => {
   try {
-    console.log(`[NeonAuth] Signing up: ${email}`);
-
-    const response = await fetch(`${NEON_AUTH_URL}/sign-up/email`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        email,
-        password,
-        name: email.split('@')[0], // Default name from email
-      }),
-      credentials: 'include',
+    const { data, error } = await authClient.signUp.email({
+      email,
+      password,
+      name: email.split('@')[0],
     });
 
-    const data = await response.json();
-
-    if (!response.ok) {
-      const errorMessage =
-        data?.message || data?.error || `Registration failed (${response.status})`;
-      console.error('[NeonAuth] Sign up error:', errorMessage);
-      return { data: { user: null, session: null }, error: new Error(errorMessage) };
+    if (error) {
+      return { data: { user: null, session: null }, error: new Error(error.message) };
     }
 
-    console.log('[NeonAuth] Sign up successful:', data);
-
-    const user: NeonAuthUser = data.user;
-
-    // Fetch the real JWT using the cookie that was just set
-    const jwtResponse = await fetch(`${NEON_AUTH_URL}/get-session`, {
-      method: 'GET',
-      credentials: 'include'
-    });
-    const jwtToken = jwtResponse.headers.get('set-auth-jwt');
-    const token: string = jwtToken || data.token || data.session?.token || '';
-
-    if (user && token) {
-      const session: NeonAuthSession = { token, user };
+    const jwtToken = await neonAuth.getJWTToken();
+    if (data?.user && jwtToken) {
+      memoryToken = jwtToken;
+      const session = { token: jwtToken, user: data.user as NeonAuthUser };
       saveSession(session);
-      return { data: { user, session }, error: null };
+      return { data: { user: data.user as NeonAuthUser, session }, error: null };
     }
 
-    // If sign-up succeeded but no immediate session (email verification required)
-    return { data: { user: data.user || null, session: null }, error: null };
+    return { data: { user: data?.user as NeonAuthUser || null, session: null }, error: null };
   } catch (error) {
-    console.error('[NeonAuth] signUp exception:', error);
     return { data: { user: null, session: null }, error: error as Error };
   }
 };
 
 export const signIn = async (email: string, password: string) => {
   try {
-    console.log(`[NeonAuth] Signing in: ${email}`);
+    const { data, error } = await authClient.signIn.email({ email, password });
 
-    const response = await fetch(`${NEON_AUTH_URL}/sign-in/email`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password }),
-      credentials: 'include',
-    });
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      const errorMessage =
-        data?.message || data?.error || `Login failed (${response.status})`;
-      console.error('[NeonAuth] Sign in error:', errorMessage);
-      return { data: { user: null, session: null }, error: new Error(errorMessage) };
+    if (error) {
+      return { data: { user: null, session: null }, error: new Error(error.message) };
     }
 
-    console.log('[NeonAuth] Sign in successful:', data);
-
-    const user: NeonAuthUser = data.user;
-
-    // Fetch the real JWT using the session cookie that was just set
-    const jwtResponse = await fetch(`${NEON_AUTH_URL}/get-session`, {
-      method: 'GET',
-      credentials: 'include'
-    });
-    const jwtToken = jwtResponse.headers.get('set-auth-jwt');
-    const token: string = jwtToken || data.token || data.session?.token || '';
-
-    if (user && token) {
-      const session: NeonAuthSession = { token, user };
+    const jwtToken = await neonAuth.getJWTToken();
+    if (data?.user && jwtToken) {
+      memoryToken = jwtToken;
+      const session = { token: jwtToken, user: data.user as NeonAuthUser };
       saveSession(session);
-      return { data: { user, session }, error: null };
+      return { data: { user: data.user as NeonAuthUser, session }, error: null };
     }
 
     return { data: { user: null, session: null }, error: new Error('No session returned') };
   } catch (error) {
-    console.error('[NeonAuth] signIn exception:', error);
     return { data: { user: null, session: null }, error: error as Error };
   }
 };
 
 export const signInWithGoogle = async () => {
   try {
-    console.log('[NeonAuth] Initiating Google Sign-In...');
-    const response = await fetch(`${NEON_AUTH_URL}/sign-in/social`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        provider: 'google',
-        callbackURL: `${window.location.origin}/dashboard`,
-        newUserCallbackURL: `${window.location.origin}/profile`
-      }),
-      credentials: 'include',
+    const { error } = await authClient.signIn.social({
+      provider: 'google',
+      callbackURL: `${window.location.origin}/auth/callback`,
     });
 
-    const data = await response.json();
-
-    if (!response.ok) {
-      throw new Error(data?.message || data?.error || `Google sign-in failed (${response.status})`);
+    if (error) {
+      throw new Error(error.message);
     }
-
-    if (data?.url) {
-      // Redirect seamlessly to Google accounts
-      window.location.href = data.url;
-      return { error: null };
-    }
-
-    throw new Error('No redirect URL returned by Auth Provider');
+    
+    // Better Auth normally redirects automatically on social sign in!
+    return { error: null };
   } catch (error) {
     console.error('[NeonAuth] signInWithGoogle exception:', error);
     return { error: error as Error };
@@ -187,28 +122,12 @@ export const signInWithGoogle = async () => {
 
 export const signOut = async () => {
   try {
-    console.log('[NeonAuth] Signing out...');
-
-    const session = loadSession();
-    if (session?.token) {
-      try {
-        await fetch(`${NEON_AUTH_URL}/sign-out`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${session.token}`,
-          },
-          credentials: 'include',
-        });
-      } catch (e) {
-        console.warn('[NeonAuth] Server-side sign-out failed (non-critical):', e);
-      }
-    }
-
+    await authClient.signOut();
+    memoryToken = null;
     clearSession();
     return { error: null };
-  } catch (error) {
-    console.error('[NeonAuth] signOut exception:', error);
+  } catch {
+    memoryToken = null;
     clearSession();
     return { error: null };
   }
@@ -216,28 +135,24 @@ export const signOut = async () => {
 
 export const getSession = async () => {
   try {
-    const jwtResponse = await fetch(`${NEON_AUTH_URL}/get-session`, {
-      method: 'GET',
-      credentials: 'include'
-    });
-    if (jwtResponse.ok) {
-      const data = await jwtResponse.json();
-      const jwtToken = jwtResponse.headers.get('set-auth-jwt');
-      if (jwtToken && data && data.user) {
-        const session: NeonAuthSession = { token: jwtToken, user: data.user };
+    const { data } = await authClient.getSession();
+    
+    if (data?.user) {
+      const jwtToken = await neonAuth.getJWTToken();
+      if (jwtToken) {
+        memoryToken = jwtToken;
+        const session = { token: jwtToken, user: data.user as NeonAuthUser };
         saveSession(session);
         return { data: { session }, error: null };
       }
-    } else if (jwtResponse.status === 401 || jwtResponse.status === 403) {
-      clearSession();
-      return { data: { session: null }, error: null };
     }
   } catch (e) {
-    console.warn('[NeonAuth] Failed to refresh session from server', e);
+    console.warn('[NeonAuth] Failed to get session', e);
   }
 
   const session = loadSession();
   if (session) {
+    memoryToken = session.token;
     return { data: { session }, error: null };
   }
   return { data: { session: null }, error: null };
@@ -251,23 +166,16 @@ export const getCurrentUser = async () => {
   return { data: { user: null }, error: null };
 };
 
-/**
- * Get the current access token for API requests.
- * Used by the axios interceptor in api.ts.
- */
 export const getAccessToken = (): string | null => {
-  const session = loadSession();
-  return session?.token || null;
+  return memoryToken || loadSession()?.token || null;
 };
 
-// Auth state change listener (simplified — polls localStorage)
 type AuthCallback = (event: string, session: NeonAuthSession | null) => void;
 const listeners: Set<AuthCallback> = new Set();
 
 export const onAuthStateChange = (callback: AuthCallback) => {
   listeners.add(callback);
 
-  // Immediately fire with current state
   const session = loadSession();
   callback(session ? 'SIGNED_IN' : 'SIGNED_OUT', session);
 
@@ -282,7 +190,6 @@ export const onAuthStateChange = (callback: AuthCallback) => {
   };
 };
 
-// Notify all listeners when auth state changes
 export function notifyAuthChange(event: string, session: NeonAuthSession | null) {
   listeners.forEach((cb) => cb(event, session));
 }

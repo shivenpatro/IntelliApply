@@ -58,32 +58,10 @@ Resume Text (if provided):
 """
 
 
+# Deprecated: pypdf often fails on complex Canva/LaTeX resumes and returns garbage text.
+# We now use Gemini's native PDF vision API directly.
 def _extract_text_from_pdf(file_bytes: bytes) -> str:
-    """
-    Extract raw text from a PDF using pypdf.
-    Lightweight, pure-Python, no ML models needed — Gemini handles the intelligence.
-    """
-    try:
-        import pypdf
-
-        reader = pypdf.PdfReader(io.BytesIO(file_bytes))
-        pages_text = []
-        for i, page in enumerate(reader.pages):
-            page_text = page.extract_text() or ""
-            if page_text.strip():
-                pages_text.append(page_text)
-            logger.debug(f"[ResumeParser] PDF page {i + 1}: extracted {len(page_text)} chars")
-
-        full_text = "\n\n".join(pages_text)
-        logger.info(f"[ResumeParser] pypdf extracted {len(full_text)} chars from {len(reader.pages)} pages.")
-        return full_text
-
-    except ImportError:
-        logger.error("[ResumeParser] pypdf not installed. Add 'pypdf' to requirements.txt.")
-        return ""
-    except Exception as e:
-        logger.error(f"[ResumeParser] pypdf extraction error: {e}", exc_info=True)
-        return ""
+    return ""
 
 
 def _extract_text_from_docx(file_bytes: bytes) -> str:
@@ -148,12 +126,11 @@ async def parse_resume(file_bytes: bytes, file_extension: str, profile_id: str):
         payload_content = []
         prompt = EXTRACTION_PROMPT_TEMPLATE.format(resume_text=raw_text)
         
-        # If pypdf failed (e.g., image-based PDF), use Gemini Vision natively
-        if not raw_text.strip() and ext == "pdf":
-            logger.info("[ResumeParser] pypdf extracted empty string. Falling back to Gemini native PDF vision processing.")
-            payload_content = [{"mime_type": "application/pdf", "data": file_bytes}, prompt]
+        if ext == "pdf":
+            logger.info("[ResumeParser] Using Gemini native PDF vision processing.")
+            payload_content = [{"mime_type": "application/pdf", "data": file_bytes}, EXTRACTION_PROMPT_TEMPLATE.format(resume_text="Attached as PDF")]
         elif not raw_text.strip():
-            logger.error("[ResumeParser] No text extracted from resume. Cannot proceed.")
+            logger.error("[ResumeParser] No text extracted from DOCX resume. Cannot proceed.")
             return
         else:
             logger.info(f"[ResumeParser] Extracted {len(raw_text)} chars. Sending text to Gemini...")

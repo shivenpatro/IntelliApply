@@ -13,6 +13,7 @@ import DashboardPage from './pages/DashboardPage';
 import ProfilePage from './pages/ProfilePage';
 import ForgotPasswordPage from './pages/ForgotPasswordPage'; // Import ForgotPasswordPage
 import UpdatePasswordPage from './pages/UpdatePasswordPage'; // Import UpdatePasswordPage
+import AuthCallbackPage from './pages/AuthCallbackPage';
 
 // Auth context
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -55,6 +56,7 @@ function AppContent() {
           } />
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
           <Route path="/update-password" element={<UpdatePasswordPage />} />
+          <Route path="/auth/callback" element={<AuthCallbackPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>

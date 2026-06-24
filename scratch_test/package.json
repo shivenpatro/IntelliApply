@@ -1,0 +1,17 @@
+{
+  "name": "scratch_test",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "@better-fetch/fetch": "^1.3.1",
+    "better-auth": "^1.6.20"
+  }
+}
