@@ -63,23 +63,15 @@ const AuthCallbackPage = () => {
         justifyContent: 'center',
         height: '100vh',
         gap: '16px',
-        fontFamily: 'Inter, sans-serif',
-        color: '#a0aec0',
-        background: '#0f172a',
+        fontFamily: "'Inter', sans-serif",
+        color: 'var(--text-secondary)',
+        background: 'var(--bg-base)',
       }}
     >
-      <div
-        style={{
-          width: '48px',
-          height: '48px',
-          border: '4px solid #334155',
-          borderTop: '4px solid #63e6be',
-          borderRadius: '50%',
-          animation: 'spin 0.8s linear infinite',
-        }}
-      />
-      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-      <p style={{ fontSize: '16px', margin: 0 }}>Completing sign-in…</p>
+      <div className="spinner" />
+      <p style={{ fontSize: '16px', margin: 0, fontFamily: "'Sora', sans-serif", fontWeight: 500, color: 'var(--text-primary)' }}>
+        Completing sign-in…
+      </p>
     </div>
   );
 };

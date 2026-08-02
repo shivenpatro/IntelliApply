@@ -8,9 +8,9 @@ interface Job {
   description: string;
   url: string;
   source: string;
-  posted_date: string; // Assuming YYYY-MM-DD or similar
-  scraped_at: string; // Added to match DashboardPage type
-  created_at: string; // Added to match DashboardPage type
+  posted_date: string;
+  scraped_at: string;
+  created_at: string;
   relevance_score?: number;
   status: 'pending' | 'interested' | 'applied' | 'ignored';
 }
@@ -21,67 +21,64 @@ interface JobCardProps {
   onStatusChange: (jobId: number, newStatus: string) => void;
 }
 
-// Placeholder Icons - consider using a library like Heroicons
-const EyeIcon = () => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 mr-1"><path d="M10 12.5a2.5 2.5 0 100-5 2.5 2.5 0 000 5z" /><path fillRule="evenodd" d="M.664 10.59a1.651 1.651 0 010-1.18l.879-.879a1.651 1.651 0 012.336 0l.879.879a1.651 1.651 0 010 1.18l-.879.879a1.651 1.651 0 01-2.336 0l-.879-.879zm9.336 0a1.651 1.651 0 010-1.18l.879-.879a1.651 1.651 0 012.335 0l.879.879a1.651 1.651 0 010 1.18l-.879.879a1.651 1.651 0 01-2.335 0l-.879-.879z" clipRule="evenodd" /></svg>;
-const CheckCircleIcon = () => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 mr-1"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clipRule="evenodd" /></svg>;
-const StarIcon = () => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 mr-1"><path fillRule="evenodd" d="M10.868 2.884c-.321-.772-1.415-.772-1.736 0l-1.83 4.401-4.753.39-3.423 3.338.95 4.876 4.225-2.287 4.225 2.287.95-4.876-3.423-3.338-4.753-.39L10.868 2.884z" clipRule="evenodd" /></svg>;
-const XCircleIcon = () => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 mr-1"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.28 7.22a.75.75 0 00-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 101.06 1.06L10 11.06l1.72 1.72a.75.75 0 101.06-1.06L11.06 10l1.72-1.72a.75.75 0 00-1.06-1.06L10 8.94 8.28 7.22z" clipRule="evenodd" /></svg>;
-
-
 const JobCard: React.FC<JobCardProps> = ({ job, onOpenDetails, onStatusChange }) => {
-  const statusColors = {
-    pending: 'border-slate-500',
-    interested: 'border-amber-400', // theme-accent-amber
-    applied: 'border-green-500', // A generic green, or use theme-accent-cyan
-    ignored: 'border-red-500',
+  const statusStyles: Record<string, { borderColor: string; textColor: string; bgColor: string }> = {
+    pending:    { borderColor: 'var(--border-default)', textColor: 'var(--status-pending-text)', bgColor: 'var(--status-pending-bg)' },
+    interested: { borderColor: 'var(--status-interested-border)', textColor: 'var(--status-interested-text)', bgColor: 'var(--status-interested-bg)' },
+    applied:    { borderColor: 'var(--status-applied-border)', textColor: 'var(--status-applied-text)', bgColor: 'var(--status-applied-bg)' },
+    ignored:    { borderColor: 'var(--status-ignored-border)', textColor: 'var(--status-ignored-text)', bgColor: 'var(--status-ignored-bg)' },
   };
 
-  const statusTextColors = {
-    pending: 'text-slate-400',
-    interested: 'text-amber-400',
-    applied: 'text-green-400',
-    ignored: 'text-red-400',
-  };
-  
-  const statusBgColors = {
-    pending: 'bg-slate-700',
-    interested: 'bg-amber-500/20',
-    applied: 'bg-green-500/20',
-    ignored: 'bg-red-500/20',
-  };
-
+  const currentStatus = statusStyles[job.status] || statusStyles.pending;
 
   const formatDate = (dateString: string) => {
     if (!dateString) return 'N/A';
     try {
       return new Date(dateString).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
     } catch (e) {
-      return dateString; // Return original if parsing fails
+      return dateString;
     }
   };
 
   return (
-    <div 
-      className={`bg-theme-surface rounded-lg shadow-xl p-5 transition-all duration-300 transform hover:-translate-y-1 hover:shadow-theme-accent-cyan/20 border-l-4 ${statusColors[job.status] || 'border-slate-500'}`}
+    <div
+      className="card card-hover gradient-border"
+      style={{
+        borderLeft: `3px solid ${currentStatus.borderColor}`,
+        padding: 'var(--space-5)',
+        cursor: 'default',
+      }}
     >
-      <div className="flex flex-col h-full">
-        {/* Header: Title, Company, Location */}
-        <div className="mb-3">
-          <h3 
-            className="text-lg font-display font-semibold text-theme-text-primary hover:text-theme-accent-cyan cursor-pointer transition-colors"
+      <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+        {/* Header */}
+        <div style={{ marginBottom: 'var(--space-3)' }}>
+          <h3
+            style={{
+              fontSize: '16px',
+              fontWeight: 600,
+              fontFamily: "'Sora', sans-serif",
+              color: 'var(--text-primary)',
+              cursor: 'pointer',
+              lineHeight: 1.3,
+            }}
             onClick={() => onOpenDetails(job)}
+            onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--accent)')}
+            onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-primary)')}
           >
             {job.title}
           </h3>
-          <p className="text-sm text-theme-text-secondary mt-1">{job.company}</p>
-          <p className="text-xs text-slate-500 mt-0.5">{job.location}</p>
+          <p style={{ fontSize: '14px', color: 'var(--text-secondary)', marginTop: '4px' }}>{job.company}</p>
+          <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px' }}>{job.location}</p>
         </div>
 
-        {/* Relevance Score & Posted Date */}
-        <div className="flex justify-between items-center text-xs text-theme-text-secondary mb-3">
+        {/* Score & Date */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12px', color: 'var(--text-muted)', marginBottom: 'var(--space-3)' }}>
           {job.relevance_score !== undefined && (
-            <div className="flex items-center">
-              <span className={`font-semibold mr-1 ${job.relevance_score > 0.75 ? 'text-theme-accent-cyan' : job.relevance_score > 0.5 ? 'text-amber-400' : 'text-slate-400'}`}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <span style={{
+                fontWeight: 600,
+                color: job.relevance_score > 0.75 ? 'var(--accent)' : job.relevance_score > 0.5 ? 'var(--status-interested-text)' : 'var(--text-muted)',
+              }}>
                 {(job.relevance_score * 100).toFixed(0)}%
               </span>
               <span>Match</span>
@@ -90,30 +87,57 @@ const JobCard: React.FC<JobCardProps> = ({ job, onOpenDetails, onStatusChange })
           <span>Posted: {formatDate(job.posted_date)}</span>
         </div>
         
-        {/* Description Snippet */}
-        <p className="text-sm text-theme-text-secondary line-clamp-3 mb-4 flex-grow">
+        {/* Description */}
+        <p style={{
+          fontSize: '14px',
+          color: 'var(--text-secondary)',
+          lineHeight: 1.6,
+          display: '-webkit-box',
+          WebkitLineClamp: 3,
+          WebkitBoxOrient: 'vertical' as const,
+          overflow: 'hidden',
+          marginBottom: 'var(--space-4)',
+          flex: 1,
+        }}>
           {job.description}
         </p>
 
-        {/* Footer: Status & Actions */}
-        <div className="mt-auto pt-4 border-t border-slate-700 flex flex-col sm:flex-row justify-between items-center gap-3">
-          <div className="w-full sm:w-auto">
-            <select
-              value={job.status}
-              onChange={(e) => onStatusChange(job.id, e.target.value)}
-              className={`w-full sm:w-auto text-xs font-medium py-1.5 px-2.5 rounded-md border border-slate-600 focus:ring-1 focus:ring-theme-accent-cyan focus:border-theme-accent-cyan transition-colors ${statusTextColors[job.status]} ${statusBgColors[job.status]} bg-theme-bg`}
-            >
-              <option value="pending">Pending</option>
-              <option value="interested">Interested</option>
-              <option value="applied">Applied</option>
-              <option value="ignored">Ignored</option>
-            </select>
-          </div>
+        {/* Footer */}
+        <div style={{
+          marginTop: 'auto',
+          paddingTop: 'var(--space-4)',
+          borderTop: '1px solid var(--border-subtle)',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          gap: 'var(--space-3)',
+          flexWrap: 'wrap',
+        }}>
+          <select
+            value={job.status}
+            onChange={(e) => onStatusChange(job.id, e.target.value)}
+            className="input-field"
+            style={{
+              width: 'auto',
+              fontSize: '12px',
+              fontWeight: 500,
+              padding: '6px 28px 6px 10px',
+              color: currentStatus.textColor,
+              background: currentStatus.bgColor,
+              borderColor: currentStatus.borderColor,
+              borderRadius: 'var(--radius-sm)',
+            }}
+          >
+            <option value="pending">Pending</option>
+            <option value="interested">Interested</option>
+            <option value="applied">Applied</option>
+            <option value="ignored">Ignored</option>
+          </select>
           <button
             onClick={() => onOpenDetails(job)}
-            className="w-full sm:w-auto inline-flex items-center justify-center px-3 py-1.5 border border-transparent text-xs font-semibold rounded-md text-theme-bg bg-theme-accent-cyan hover:bg-theme-accent-cyan-darker focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-theme-surface focus:ring-theme-accent-cyan transition-colors"
+            className="btn btn-primary btn-sm"
           >
-            <EyeIcon /> View Details
+            View Details
           </button>
         </div>
       </div>

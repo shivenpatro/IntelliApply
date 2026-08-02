@@ -1,14 +1,14 @@
-import { useState, useEffect, ChangeEvent } from 'react';
+import { useState, useEffect, useRef, ChangeEvent } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { profileAPI } from '../services/api';
 import { useNavigate, Link } from 'react-router-dom';
 
-// --- Icon Placeholders ---
-const UserCircleIcon = () => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5 mr-2"><path fillRule="evenodd" d="M18.685 19.097A9.723 9.723 0 0021.75 12c0-5.385-4.365-9.75-9.75-9.75S2.25 6.615 2.25 12a9.723 9.723 0 003.065 7.097A9.716 9.716 0 0012 21.75a9.716 9.716 0 006.685-2.653zm-12.54-1.285A7.486 7.486 0 0112 15a7.486 7.486 0 015.855 2.812A8.224 8.224 0 0112 20.25a8.224 8.224 0 01-5.855-2.438zM15.75 9a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0z" clipRule="evenodd" /></svg>;
-const DocumentArrowUpIcon = () => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5 mr-2"><path fillRule="evenodd" d="M10.5 3.75a6 6 0 00-5.98 6.496A5.25 5.25 0 006.75 20.25H18a4.5 4.5 0 002.206-8.423 3.75 3.75 0 00-4.133-4.303A6.001 6.001 0 0010.5 3.75zm2.03 5.47a.75.75 0 00-1.06 0l-3 3a.75.75 0 101.06 1.06l1.72-1.72v4.94a.75.75 0 001.5 0v-4.94l1.72 1.72a.75.75 0 101.06-1.06l-3-3z" clipRule="evenodd" /></svg>;
-const LightBulbIcon = () => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5 mr-2"><path d="M12 2.25a.75.75 0 01.75.75v2.25a.75.75 0 01-1.5 0V3a.75.75 0 01.75-.75zM7.5 12a4.5 4.5 0 119 0 4.5 4.5 0 01-9 0zM18.894 6.166a.75.75 0 00-1.06-1.06l-1.591 1.59a.75.75 0 101.06 1.061l1.591-1.59zM21.75 12a.75.75 0 01-.75.75h-2.25a.75.75 0 010-1.5H21a.75.75 0 01.75.75zM17.834 18.894a.75.75 0 001.06-1.06l-1.59-1.591a.75.75 0 10-1.061 1.06l1.59 1.591zM12 18a.75.75 0 01.75.75V21a.75.75 0 01-1.5 0v-2.25A.75.75 0 0112 18zM7.758 17.303a.75.75 0 00-1.061-1.06l-1.591 1.59a.75.75 0 001.06 1.061l1.591-1.59zM6 12a.75.75 0 01-.75.75H3a.75.75 0 010-1.5h2.25A.75.75 0 016 12zM6.166 7.758a.75.75 0 001.06-1.06l-1.59-1.591a.75.75 0 00-1.061 1.06l1.59 1.591z" /></svg>;
-const CogIcon = () => <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5 mr-2"><path strokeLinecap="round" strokeLinejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.37.49l1.296 2.247a1.125 1.125 0 01-.26 1.431l-1.003.827c-.293.24-.438.613-.431.992a6.759 6.759 0 010 1.255c-.007.378.138.75.43.99l1.005.828c.424.35.534.954.26 1.43l-1.298 2.247a1.125 1.125 0 01-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.57 6.57 0 01-.22.128c-.332.183-.582.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.02-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 01-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 01-1.369-.49l-1.297-2.247a1.125 1.125 0 01.26-1.431l1.004-.827c.292-.24.437-.613.43-.992a6.759 6.759 0 010-1.255c.007-.378-.138-.75-.43-.99l-1.004-.828a1.125 1.125 0 01-.26-1.43l1.297-2.247a1.125 1.125 0 011.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.644-.869l.214-1.281z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>;
-const XMarkIconMini = () => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5"><path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" /></svg>;
+/* ── Icon Components ── */
+const UserIcon = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>;
+const UploadIcon = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>;
+const BulbIcon = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18h6M10 22h4M12 2a7 7 0 00-4 12.7V17h8v-2.3A7 7 0 0012 2z"/></svg>;
+const CogIcon = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z"/></svg>;
+const XSmallIcon = () => <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M4.646 4.646a.5.5 0 01.708 0L8 7.293l2.646-2.647a.5.5 0 01.708.708L8.707 8l2.647 2.646a.5.5 0 01-.708.708L8 8.707l-2.646 2.647a.5.5 0 01-.708-.708L7.293 8 4.646 5.354a.5.5 0 010-.708z"/></svg>;
 
 interface UserProfile { id: number; email: string; first_name?: string; last_name?: string; resume_path?: string; desired_roles?: string; desired_locations?: string; min_salary?: number; skills?: Skill[]; experiences?: Experience[]; }
 interface Skill { id: number; name: string; level?: string; }
@@ -72,20 +72,17 @@ const ProfilePage = () => {
     if (!file) { setUploadError('Please select a file to upload.'); return; }
     setUploading(true); setUploadError(null); setUploadSuccess(null);
     try {
-      // Initial message indicating upload received and parsing started
       const initialResponse = await profileAPI.uploadResume(file);
       setUploadSuccess(initialResponse.message || 'Resume uploaded. Processing started... Profile will refresh shortly.');
-      setFile(null); // Clear the selected file
+      setFile(null);
       const fileInput = document.getElementById('resume-upload') as HTMLInputElement;
-      if (fileInput) fileInput.value = ''; // Reset file input
+      if (fileInput) fileInput.value = '';
 
-      // Wait for a few seconds to allow backend parsing to complete
       setTimeout(async () => {
         try {
           console.log('[ProfilePage] Refetching profile data after resume upload delay...');
           const profileData = await profileAPI.getProfile();
           setProfile(profileData);
-          // NEW: Update account info in backend if name was extracted
           if (profileData.first_name || profileData.last_name) {
             console.log('[ProfilePage] Saving extracted name to backend...');
             await profileAPI.updatePreferences({
@@ -93,7 +90,7 @@ const ProfilePage = () => {
               last_name: profileData.last_name || ''
             });
             setAccountInfo(prev => ({ ...prev, first_name: profileData.first_name || '', last_name: profileData.last_name || '' }));
-            setAccountInfoSuccess('Name updated from resume!'); // Provide feedback
+            setAccountInfoSuccess('Name updated from resume!');
           }
 
           if (profileData.skills) setActiveSkills(profileData.skills);
@@ -102,14 +99,13 @@ const ProfilePage = () => {
           console.error('[ProfilePage] Error fetching profile after resume upload delay:', fetchErr);
           setUploadError(fetchErr.response?.data?.detail || fetchErr.message || 'Failed to refresh profile data after resume processing.');
         } finally {
-          setUploading(false); // Set uploading to false only after everything is done
+          setUploading(false);
         }
-      }, 7000); // 7-second delay
+      }, 7000);
     } catch (err: any) { 
       setUploadError(err.response?.data?.detail || err.message || 'Failed to upload resume.'); 
-      setUploading(false); // Ensure uploading is set to false on initial upload error
+      setUploading(false);
     }
-    // Note: setUploading(false) is now primarily handled within the setTimeout or initial catch block
   };
 
   const handleAccountInfoChange = (e: React.ChangeEvent<HTMLInputElement>) => setAccountInfo(prev => ({ ...prev, [e.target.name]: e.target.value }));
@@ -221,112 +217,163 @@ const ProfilePage = () => {
 
   if (authLoading || loading) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-theme-bg text-theme-text-primary p-4">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-theme-accent-cyan mb-4"></div>
-        <p className="text-xl font-display">Loading Profile...</p>
+      <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-base)', padding: '16px' }}>
+        <div className="spinner" />
+        <p style={{ marginTop: '16px', fontSize: '18px', fontFamily: "'Sora', sans-serif", fontWeight: 500, color: 'var(--text-primary)' }}>Loading Profile...</p>
       </div>
     );
   }
   if (error && !profile) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-theme-bg text-theme-text-primary p-4">
-        <p className="text-xl text-amber-400 font-display">{error}</p>
-        <Link to="/login" className="mt-4 px-4 py-2 border border-theme-accent-cyan text-sm font-medium rounded-md text-theme-accent-cyan hover:bg-theme-accent-cyan/10 transition-colors">
-            Go to Login
-        </Link>
+      <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-base)', padding: '16px' }}>
+        <p style={{ fontSize: '18px', color: 'var(--status-interested-text)', fontFamily: "'Sora', sans-serif", fontWeight: 500 }}>{error}</p>
+        <Link to="/login" className="btn btn-secondary" style={{ marginTop: '16px' }}>Go to Login</Link>
       </div>
     );
   }
   if (!profile) {
      return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-theme-bg text-theme-text-primary p-4">
-        <p className="text-xl font-display">Profile data not available.</p>
-         <Link to="/login" className="mt-4 px-4 py-2 border border-theme-accent-cyan text-sm font-medium rounded-md text-theme-accent-cyan hover:bg-theme-accent-cyan/10 transition-colors">
-            Go to Login
-        </Link>
+      <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-base)', padding: '16px' }}>
+        <p style={{ fontSize: '18px', fontFamily: "'Sora', sans-serif", fontWeight: 500, color: 'var(--text-primary)' }}>Profile data not available.</p>
+        <Link to="/login" className="btn btn-secondary" style={{ marginTop: '16px' }}>Go to Login</Link>
       </div>
     );
   }
-  
-  const inputClasses = "appearance-none block w-full px-3 py-2 bg-theme-bg border border-slate-700 rounded-md shadow-sm placeholder-slate-500 text-theme-text-primary focus:outline-none focus:ring-2 focus:ring-theme-accent-cyan focus:border-theme-accent-cyan sm:text-sm";
-  const labelClasses = "block text-sm font-medium text-theme-text-secondary mb-1";
-  const buttonPrimaryClasses = "inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-semibold rounded-md shadow-sm text-theme-bg bg-theme-accent-cyan hover:bg-theme-accent-cyan-darker focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-theme-surface focus:ring-theme-accent-cyan disabled:opacity-60 transition-colors";
-  
-  const alertErrorClasses = "bg-amber-500/10 border border-amber-500/30 text-amber-300 px-4 py-3 rounded-md relative";
-  const alertSuccessClasses = "bg-theme-accent-cyan/10 border border-theme-accent-cyan/30 text-theme-accent-cyan px-4 py-3 rounded-md relative";
 
   return (
-    <div className="max-w-5xl mx-auto py-10 px-4 sm:px-6 lg:px-8 text-theme-text-primary">
-      <div className="flex flex-col md:flex-row justify-between items-center mb-10">
-        <h1 className="text-4xl font-display font-bold mb-4 md:mb-0">Your Profile</h1>
-        <button onClick={handleFindJobs} className={`${buttonPrimaryClasses} w-full md:w-auto`}>
-          Find Matching Jobs
-        </button>
+    <div style={{ maxWidth: '800px', margin: '0 auto', padding: 'var(--space-7) var(--space-5)', paddingTop: 'calc(60px + var(--space-7))' }}>
+      {/* Header */}
+      <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-7)', gap: 'var(--space-4)' }}>
+        <div>
+          <h1 className="text-h1">Your <span className="text-accent-gradient">Profile</span></h1>
+          <p className="text-body" style={{ marginTop: '4px' }}>Manage your account, resume, and job preferences.</p>
+        </div>
+        <button onClick={handleFindJobs} className="btn btn-primary">Find Matching Jobs</button>
       </div>
 
-      <div className="space-y-8">
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}>
 
-        <section className="bg-theme-surface shadow-xl rounded-lg p-6 sm:p-8">
-          <div className="flex items-center mb-4"><UserCircleIcon /><h2 className="text-2xl font-display font-semibold">Account Information</h2></div>
-          <p className="text-sm text-theme-text-secondary mb-6">Your basic account information. Email is read-only.</p>
-          <form onSubmit={handleAccountInfoSubmit} className="space-y-4">
-            {accountInfoError && <div className={alertErrorClasses} role="alert">{accountInfoError}</div>}
-            {accountInfoSuccess && <div className={alertSuccessClasses} role="alert">{accountInfoSuccess}</div>}
+        {/* Account Information */}
+        <section className="card card-feature card-hover" style={{ padding: 'var(--space-6)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', marginBottom: 'var(--space-4)' }}>
+            <div className="card-icon" style={{ marginBottom: 0 }}><UserIcon /></div>
+            <h2 className="text-h2" style={{ margin: 0 }}>Account Information</h2>
+          </div>
+          <p className="text-body" style={{ marginBottom: 'var(--space-5)' }}>Your basic account information. Email is read-only.</p>
+          <form onSubmit={handleAccountInfoSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+            {accountInfoError && <div className="alert alert-error" role="alert">{accountInfoError}</div>}
+            {accountInfoSuccess && <div className="alert alert-success" role="alert">{accountInfoSuccess}</div>}
             <div>
-              <label htmlFor="email" className={labelClasses}>Email address</label>
-              <input type="email" name="email" id="email" value={accountInfo.email} readOnly className={`${inputClasses} bg-slate-800 cursor-not-allowed text-slate-400`} />
+              <label htmlFor="email" className="input-label">Email address</label>
+              <input type="email" name="email" id="email" value={accountInfo.email} readOnly className="input-field" />
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div><label htmlFor="first_name" className={labelClasses}>First Name</label><input type="text" name="first_name" id="first_name" placeholder="From resume or manual entry" value={accountInfo.first_name} onChange={handleAccountInfoChange} className={inputClasses} /></div>
-              <div><label htmlFor="last_name" className={labelClasses}>Last Name</label><input type="text" name="last_name" id="last_name" placeholder="From resume or manual entry" value={accountInfo.last_name} onChange={handleAccountInfoChange} className={inputClasses} /></div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-4)' }}>
+              <div>
+                <label htmlFor="first_name" className="input-label">First Name</label>
+                <input type="text" name="first_name" id="first_name" placeholder="From resume or manual entry" value={accountInfo.first_name} onChange={handleAccountInfoChange} className="input-field" />
+              </div>
+              <div>
+                <label htmlFor="last_name" className="input-label">Last Name</label>
+                <input type="text" name="last_name" id="last_name" placeholder="From resume or manual entry" value={accountInfo.last_name} onChange={handleAccountInfoChange} className="input-field" />
+              </div>
             </div>
-            <div><p className={`${labelClasses} mb-0`}>Current Resume</p><p className="text-sm text-theme-text-primary mt-1">{profile.resume_path ? profile.resume_path.split('/').pop() : 'No resume uploaded yet.'}</p></div>
-            <div><button type="submit" disabled={savingAccountInfo} className={`${buttonPrimaryClasses} min-w-[180px]`}>{savingAccountInfo ? 'Saving...' : 'Update Account Info'}</button></div>
+            <div>
+              <span className="input-label">Current Resume</span>
+              <p style={{ fontSize: '14px', color: 'var(--text-primary)', marginTop: '4px' }}>{profile.resume_path ? profile.resume_path.split('/').pop() : 'No resume uploaded yet.'}</p>
+            </div>
+            <div>
+              <button type="submit" disabled={savingAccountInfo} className="btn btn-primary">
+                {savingAccountInfo ? 'Saving...' : 'Update Account Info'}
+              </button>
+            </div>
           </form>
         </section>
 
-        <section className="bg-theme-surface shadow-xl rounded-lg p-6 sm:p-8">
-          <div className="flex items-center mb-4"><DocumentArrowUpIcon /><h2 className="text-2xl font-display font-semibold">Upload Resume</h2></div>
-          <p className="text-sm text-theme-text-secondary mb-6">Upload your latest resume (PDF or DOCX). Our AI will extract skills, experiences, and update your name.</p>
-          <form className="space-y-4" onSubmit={handleUpload}>
-             {uploadError && <div className={alertErrorClasses} role="alert">{uploadError}</div>}
-             {uploadSuccess && <div className={alertSuccessClasses} role="alert">{uploadSuccess}</div>}
+        {/* Upload Resume */}
+        <section className="card card-feature card-hover" style={{ padding: 'var(--space-6)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', marginBottom: 'var(--space-4)' }}>
+            <div className="card-icon" style={{ marginBottom: 0 }}><UploadIcon /></div>
+            <h2 className="text-h2" style={{ margin: 0 }}>Upload Resume</h2>
+          </div>
+          <p className="text-body" style={{ marginBottom: 'var(--space-5)' }}>Upload your latest resume (PDF or DOCX). Our AI will extract skills, experiences, and update your name.</p>
+          <form onSubmit={handleUpload} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+            {uploadError && <div className="alert alert-error" role="alert">{uploadError}</div>}
+            {uploadSuccess && <div className="alert alert-success" role="alert">{uploadSuccess}</div>}
             <div>
-              <label htmlFor="resume-upload" className={labelClasses}>Resume file</label>
-              <input id="resume-upload" name="resume-upload" type="file" onChange={handleFileChange} accept=".pdf,.doc,.docx" 
-                     className={`block w-full text-sm text-theme-text-secondary file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-theme-accent-cyan file:text-theme-bg hover:file:bg-theme-accent-cyan-darker file:transition-colors file:cursor-pointer ${inputClasses} p-0`} 
-                     disabled={uploading} />
-               {file && <p className="text-xs text-theme-text-secondary mt-1">Selected: {file.name}</p>}
+              <label htmlFor="resume-upload" className="input-label">Resume file</label>
+              <input
+                id="resume-upload" name="resume-upload" type="file"
+                onChange={handleFileChange} accept=".pdf,.doc,.docx"
+                className="input-field"
+                style={{ padding: '8px' }}
+                disabled={uploading}
+              />
+              {file && <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>Selected: {file.name}</p>}
             </div>
-            <div><button type="submit" disabled={!file || uploading} className={`${buttonPrimaryClasses} min-w-[220px]`}>{uploading ? 'Processing Resume...' : 'Upload & Parse Resume'}</button></div>
-            {uploading && <div className="text-sm text-theme-text-secondary">Analyzing your resume... this may take a moment.</div>}
+            <div>
+              <button type="submit" disabled={!file || uploading} className="btn btn-primary">
+                {uploading ? 'Processing Resume...' : 'Upload & Parse Resume'}
+              </button>
+            </div>
+            {uploading && <p className="text-body" style={{ fontSize: '13px' }}>Analyzing your resume... this may take a moment.</p>}
           </form>
         </section>
 
-        <section className="bg-theme-surface shadow-xl rounded-lg p-6 sm:p-8">
-          <div className="flex items-center mb-4"><LightBulbIcon /><h2 className="text-2xl font-display font-semibold">Skills</h2></div>
-          <p className="text-sm text-theme-text-secondary mb-6">Add skills to refine job matches. Resume skills are added automatically.</p>
-          {skillError && <div className={`${alertErrorClasses} mb-4`} role="alert">{skillError}</div>}
-          {skillSuccess && <div className={`${alertSuccessClasses} mb-4`} role="alert">{skillSuccess}</div>}
-          <form className="flex flex-col sm:flex-row items-end gap-3 mb-6" onSubmit={handleAddSkill}>
-            <div className="flex-grow w-full sm:w-auto"><label htmlFor="newSkill" className={labelClasses}>New Skill</label><input type="text" id="newSkill" value={newSkill} onChange={(e) => setNewSkill(e.target.value)} placeholder="e.g., JavaScript, React" className={inputClasses} /></div>
-            <div className="w-full sm:w-48"><label htmlFor="skillLevel" className={labelClasses}>Proficiency</label><select id="skillLevel" value={skillLevel} onChange={(e) => setSkillLevel(e.target.value)} className={`${inputClasses} py-[9px]`}><option value="Beginner">Beginner</option> <option value="Intermediate">Intermediate</option> <option value="Advanced">Advanced</option> <option value="Expert">Expert</option></select></div>
-            <button type="submit" disabled={addingSkill || !newSkill.trim()} className={`${buttonPrimaryClasses} w-full sm:w-auto whitespace-nowrap`}>{addingSkill ? 'Adding...' : 'Add Skill'}</button>
+        {/* Skills */}
+        <section className="card card-feature card-hover" style={{ padding: 'var(--space-6)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', marginBottom: 'var(--space-4)' }}>
+            <div className="card-icon" style={{ marginBottom: 0 }}><BulbIcon /></div>
+            <h2 className="text-h2" style={{ margin: 0 }}>Skills</h2>
+          </div>
+          <p className="text-body" style={{ marginBottom: 'var(--space-5)' }}>Add skills to refine job matches. Resume skills are added automatically.</p>
+          {skillError && <div className="alert alert-error" role="alert" style={{ marginBottom: 'var(--space-4)' }}>{skillError}</div>}
+          {skillSuccess && <div className="alert alert-success" role="alert" style={{ marginBottom: 'var(--space-4)' }}>{skillSuccess}</div>}
+          <form onSubmit={handleAddSkill} style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-end', gap: 'var(--space-3)', marginBottom: 'var(--space-5)' }}>
+            <div style={{ flex: '1 1 180px' }}>
+              <label htmlFor="newSkill" className="input-label">New Skill</label>
+              <input type="text" id="newSkill" value={newSkill} onChange={(e) => setNewSkill(e.target.value)} placeholder="e.g., JavaScript, React" className="input-field" />
+            </div>
+            <div style={{ width: '160px' }}>
+              <label htmlFor="skillLevel" className="input-label">Proficiency</label>
+              <select id="skillLevel" value={skillLevel} onChange={(e) => setSkillLevel(e.target.value)} className="input-field">
+                <option value="Beginner">Beginner</option>
+                <option value="Intermediate">Intermediate</option>
+                <option value="Advanced">Advanced</option>
+                <option value="Expert">Expert</option>
+              </select>
+            </div>
+            <button type="submit" disabled={addingSkill || !newSkill.trim()} className="btn btn-primary" style={{ whiteSpace: 'nowrap' }}>
+              {addingSkill ? 'Adding...' : 'Add Skill'}
+            </button>
           </form>
-          <div className="flex justify-between items-center mb-2">
-            <h3 className="text-lg font-medium text-theme-text-primary">Your Skills</h3>
-            {activeSkills.length > 0 && <button type="button" onClick={handleDeleteAllSkills} className="text-xs text-amber-400 hover:text-amber-300 hover:underline disabled:opacity-50">Delete All Skills</button>}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-3)' }}>
+            <h3 style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text-primary)' }}>Your Skills</h3>
+            {activeSkills.length > 0 && (
+              <button type="button" onClick={handleDeleteAllSkills} className="btn-danger btn btn-sm" style={{ padding: '4px 10px' }}>
+                Delete All Skills
+              </button>
+            )}
           </div>
           {activeSkills.length === 0 ? (
-            <p className="text-sm text-theme-text-secondary italic">No skills added. Upload resume or add manually.</p>
+            <p style={{ fontSize: '14px', color: 'var(--text-muted)', fontStyle: 'italic' }}>No skills added. Upload resume or add manually.</p>
           ) : (
-            <div className="flex flex-wrap gap-2">
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
               {activeSkills.map((skill) => (
-                <div key={skill.id} className="inline-flex items-center py-1 pl-3 pr-1 bg-theme-accent-cyan/20 text-sm font-medium text-theme-accent-cyan rounded-full">
+                <div key={skill.id} className="badge" style={{ paddingRight: '4px', gap: '4px' }}>
                   <span>{skill.name}</span>
-                  {skill.level && <span className="ml-1.5 text-xs bg-theme-accent-cyan/30 text-theme-accent-cyan px-1.5 py-0.5 rounded-full">{skill.level}</span>}
-                  <button type="button" onClick={() => handleRemoveSkill(skill.id)} className="flex-shrink-0 ml-1.5 h-5 w-5 rounded-full inline-flex items-center justify-center text-theme-accent-cyan hover:bg-theme-accent-cyan/30 focus:outline-none">
-                    <span className="sr-only">Remove {skill.name}</span> <XMarkIconMini />
+                  {skill.level && <span style={{ fontSize: '10px', opacity: 0.7 }}>({skill.level})</span>}
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveSkill(skill.id)}
+                    style={{
+                      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                      width: '18px', height: '18px', borderRadius: '50%', border: 'none',
+                      background: 'transparent', color: 'var(--accent)', cursor: 'pointer',
+                      padding: 0, marginLeft: '2px',
+                    }}
+                  >
+                    <span className="sr-only">Remove {skill.name}</span>
+                    <XSmallIcon />
                   </button>
                 </div>
               ))}
@@ -334,18 +381,26 @@ const ProfilePage = () => {
           )}
         </section>
 
-        <section className="bg-theme-surface shadow-xl rounded-lg p-6 sm:p-8">
-          <div className="flex items-center mb-4"><CogIcon /><h2 className="text-2xl font-display font-semibold">Job Preferences</h2></div>
-          <p className="text-sm text-theme-text-secondary mb-6">Set your preferences for job roles to tailor your matches.</p>
-          <form className="space-y-4" onSubmit={handlePreferencesSubmit}>
-            {preferencesError && <div className={alertErrorClasses} role="alert">{preferencesError}</div>}
-            {preferencesSuccess && <div className={alertSuccessClasses} role="alert">{preferencesSuccess}</div>}
+        {/* Job Preferences */}
+        <section className="card card-feature card-hover" style={{ padding: 'var(--space-6)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', marginBottom: 'var(--space-4)' }}>
+            <div className="card-icon" style={{ marginBottom: 0 }}><CogIcon /></div>
+            <h2 className="text-h2" style={{ margin: 0 }}>Job Preferences</h2>
+          </div>
+          <p className="text-body" style={{ marginBottom: 'var(--space-5)' }}>Set your preferences for job roles to tailor your matches.</p>
+          <form onSubmit={handlePreferencesSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+            {preferencesError && <div className="alert alert-error" role="alert">{preferencesError}</div>}
+            {preferencesSuccess && <div className="alert alert-success" role="alert">{preferencesSuccess}</div>}
             <div>
-              <label htmlFor="desired_roles" className={labelClasses}>Desired Roles (comma separated)</label>
-              <input type="text" name="desired_roles" id="desired_roles" value={preferences.desired_roles} onChange={handlePreferencesChange} placeholder="Software Engineer, Frontend Developer, etc." className={inputClasses} />
-              <p className="mt-1 text-xs text-theme-text-secondary">List roles you're interested in, separated by commas.</p>
+              <label htmlFor="desired_roles" className="input-label">Desired Roles (comma separated)</label>
+              <input type="text" name="desired_roles" id="desired_roles" value={preferences.desired_roles} onChange={handlePreferencesChange} placeholder="Software Engineer, Frontend Developer, etc." className="input-field" />
+              <p style={{ marginTop: '4px', fontSize: '12px', color: 'var(--text-muted)' }}>List roles you're interested in, separated by commas.</p>
             </div>
-            <div><button type="submit" disabled={savingPreferences} className={`${buttonPrimaryClasses} min-w-[180px]`}>{savingPreferences ? 'Saving...' : 'Save Preferences'}</button></div>
+            <div>
+              <button type="submit" disabled={savingPreferences} className="btn btn-primary">
+                {savingPreferences ? 'Saving...' : 'Save Preferences'}
+              </button>
+            </div>
           </form>
         </section>
 

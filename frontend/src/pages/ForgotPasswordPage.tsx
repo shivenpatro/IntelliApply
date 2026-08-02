@@ -47,57 +47,90 @@ const ForgotPasswordPage = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-theme-bg py-12 px-4 sm:px-6 lg:px-8">
-      <div className="bg-theme-surface p-8 sm:p-10 rounded-xl shadow-2xl max-w-md w-full space-y-8">
+    <div className="auth-page">
+      {/* Left: Brand Panel */}
+      <div className="auth-brand-panel">
+        <div className="auth-brand-logo">
+          <svg width="24" height="24" viewBox="0 0 40 40" fill="none">
+            <path d="M20 0L25.3301 14.6699L40 20L25.3301 25.3301L20 40L14.6699 25.3301L0 20L14.6699 14.6699L20 0Z" fill="white"/>
+          </svg>
+          IntelliApply
+        </div>
+
         <div>
-          <h2 className="mt-6 text-center text-3xl font-display font-extrabold text-theme-text-primary">
-            Forgot Your Password?
-          </h2>
-          <p className="mt-2 text-center text-sm text-theme-text-secondary">
-            Enter your email address and we'll send you a link to reset your password.
+          <h2 className="auth-brand-headline">We've got<br />your back.</h2>
+          <p className="auth-brand-sub">
+            Password resets happen. We'll send you a secure link to get back into your account in seconds.
           </p>
         </div>
 
-        {error && (
-          <div className="bg-amber-500/10 border border-amber-500/30 text-amber-300 px-4 py-3 rounded-md relative" role="alert">
-            <span className="block sm:inline">{error}</span>
-          </div>
-        )}
-
-        {message && (
-          <div className="bg-theme-accent-cyan/10 border border-theme-accent-cyan/30 text-theme-accent-cyan px-4 py-3 rounded-md relative" role="alert">
-            <span className="block sm:inline">{message}</span>
-          </div>
-        )}
-
-        {!message && (
-          <form className="space-y-6" onSubmit={handleSubmit}>
+        <div className="auth-testimonial">
+          <p className="auth-testimonial-text">
+            "The security flow was seamless. Got my reset link instantly and was back in action within a minute."
+          </p>
+          <div className="auth-testimonial-author">
+            <div className="auth-testimonial-avatar">MR</div>
             <div>
-              <label htmlFor="email-address" className="block text-sm font-medium text-theme-text-secondary mb-1">
-                Email address
-              </label>
-              <input
-                id="email-address" name="email" type="email" autoComplete="email" required
-                className="appearance-none block w-full px-3 py-2 bg-theme-bg border border-slate-700 rounded-md shadow-sm placeholder-slate-500 text-theme-text-primary focus:outline-none focus:ring-2 focus:ring-theme-accent-cyan focus:border-theme-accent-cyan sm:text-sm"
-                placeholder="you@example.com"
-                value={email}
-                onChange={(e) => { setEmail(e.target.value); setError(null); }}
-              />
+              <div style={{ fontSize: '13px', fontWeight: 500, color: 'rgba(255,255,255,0.85)' }}>Mark R.</div>
+              <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.4)' }}>Engineering Manager</div>
             </div>
-            <div>
-              <button
-                type="submit" disabled={loading}
-                className="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-semibold text-theme-bg bg-theme-accent-cyan hover:bg-theme-accent-cyan-darker focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-theme-surface focus:ring-theme-accent-cyan disabled:opacity-70 transition-colors"
-              >
-                {loading ? 'Sending...' : 'Send Password Reset Email'}
+          </div>
+        </div>
+      </div>
+
+      {/* Right: Form Panel */}
+      <div className="auth-form-panel">
+        <div className="auth-form-wrapper">
+          <h2 className="auth-form-title">Forgot your password?</h2>
+          <p className="auth-form-subtitle">
+            Enter your email address and we'll send you a link to reset it.{' '}
+            <Link to="/login" style={{ color: 'var(--accent)', fontWeight: 500, textDecoration: 'none' }}>
+              Back to login
+            </Link>
+          </p>
+
+          {error && (
+            <div className="alert alert-error" role="alert" style={{ marginBottom: '18px' }}>
+              {error}
+            </div>
+          )}
+
+          {message && (
+            <div className="alert alert-success" role="alert" style={{ marginBottom: '18px' }}>
+              {message}
+            </div>
+          )}
+
+          {!message && (
+            <form onSubmit={handleSubmit}>
+              <div className="form-group">
+                <label htmlFor="email-address" className="input-label">Email address</label>
+                <input
+                  id="email-address" name="email" type="email" autoComplete="email" required
+                  className="input-field"
+                  placeholder="you@example.com"
+                  value={email}
+                  onChange={(e) => { setEmail(e.target.value); setError(null); }}
+                />
+              </div>
+              <button type="submit" disabled={loading} className="btn btn-primary" style={{ width: '100%', justifyContent: 'center' }}>
+                {loading ? (
+                  <>
+                    <span className="spinner spinner-sm" style={{ borderTopColor: 'var(--text-on-accent)' }} />
+                    Sending...
+                  </>
+                ) : 'Send Reset Link'}
               </button>
+            </form>
+          )}
+
+          {message && (
+            <div style={{ marginTop: '24px', textAlign: 'center' }}>
+              <Link to="/login" style={{ fontSize: '13px', color: 'var(--accent)', fontWeight: 500, textDecoration: 'none' }}>
+                ← Back to Login
+              </Link>
             </div>
-          </form>
-        )}
-        <div className="text-sm text-center">
-          <Link to="/login" className="font-medium text-theme-accent-cyan hover:text-theme-accent-cyan-darker">
-            Back to Login
-          </Link>
+          )}
         </div>
       </div>
     </div>

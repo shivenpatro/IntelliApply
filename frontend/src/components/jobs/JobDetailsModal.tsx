@@ -1,12 +1,11 @@
 import React, { useState, useEffect } from 'react';
 
-// --- Icons (Consider using a library like Heroicons) ---
+/* ── Icons ── */
 const XMarkIcon = () => <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>;
-const BuildingOfficeIcon = () => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 mr-1.5 opacity-70"><path fillRule="evenodd" d="M1.5 7.126c0-1.32.964-2.504 2.25-2.833.6-.15 1.177-.22 1.75-.22h9c.573 0 1.15.07 1.75.22A2.996 2.996 0 0118.5 7.126V15.5A2.5 2.5 0 0116 18H4a2.5 2.5 0 01-2.5-2.5V7.126zM10 12a.75.75 0 00-1.5 0v.002A.75.75 0 0010 12zm3 0a.75.75 0 00-1.5 0v.002a.75.75 0 001.5 0zm-6-2.25A.75.75 0 017.5 9h.008a.75.75 0 01.75.75v.002a.75.75 0 01-.75.75H7.5a.75.75 0 01-.75-.75V9.75zm3 0A.75.75 0 0110.5 9h.008a.75.75 0 01.75.75v.002a.75.75 0 01-.75.75H10.5a.75.75 0 01-.75-.75V9.75zm3 0A.75.75 0 0113.5 9h.008a.75.75 0 01.75.75v.002a.75.75 0 01-.75.75H13.5a.75.75 0 01-.75-.75V9.75z" clipRule="evenodd" /></svg>;
-const MapPinIcon = () => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 mr-1.5 opacity-70"><path fillRule="evenodd" d="M9.69 18.933l.003.001C9.89 19.02 10 19 10 19s.11.02.308-.066l.002-.001.006-.003.018-.008a5.741 5.741 0 00.281-.145l.002-.001L10 18.41l.285.145.002.001.018.008.006.004c.092.042.2.077.28.11L10 19zM10 2C7.239 2 5 4.239 5 7c0 .353.044.692.128 1.014l.001.002.002.005.004.009a6.256 6.256 0 00.02.028l.003.003.002.002A6.212 6.212 0 0010 15.5c1.075 0 2.098-.276 2.97-.768A6.212 6.212 0 0010 15.5zM10 7a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" /></svg>;
-const CalendarDaysIcon = () => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 mr-1.5 opacity-70"><path fillRule="evenodd" d="M5.75 2a.75.75 0 01.75.75V4h7V2.75a.75.75 0 011.5 0V4h.25A2.75 2.75 0 0118 6.75v8.5A2.75 2.75 0 0115.25 18H4.75A2.75 2.75 0 012 15.25v-8.5A2.75 2.75 0 014.75 4H5V2.75A.75.75 0 015.75 2zm-1 5.5c-.69 0-1.25.56-1.25 1.25v6.5c0 .69.56 1.25 1.25 1.25h10.5c.69 0 1.25-.56 1.25-1.25v-6.5c0-.69-.56-1.25-1.25-1.25H4.75z" clipRule="evenodd" /></svg>;
-const LinkIcon = () => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 mr-1.5 opacity-70"><path d="M12.232 4.232a2.5 2.5 0 013.536 3.536l-1.225 1.224a.75.75 0 001.061 1.06l1.224-1.224a4 4 0 00-5.656-5.656l-3 3a4 4 0 00.225 5.865.75.75 0 00.977-1.138 2.5 2.5 0 01-.142-3.667l3-3z" /><path d="M11.603 7.963a.75.75 0 00-.977 1.138 2.5 2.5 0 01.142 3.667l-3 3a2.5 2.5 0 01-3.536-3.536l1.225-1.224a.75.75 0 00-1.061-1.06l-1.224 1.224a4 4 0 005.656 5.656l3-3a4 4 0 00-.225-5.865z" /></svg>;
-// --- End Icons ---
+const BuildingOfficeIcon = () => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" style={{ width: '16px', height: '16px', marginRight: '6px', opacity: 0.6 }}><path fillRule="evenodd" d="M1.5 7.126c0-1.32.964-2.504 2.25-2.833.6-.15 1.177-.22 1.75-.22h9c.573 0 1.15.07 1.75.22A2.996 2.996 0 0118.5 7.126V15.5A2.5 2.5 0 0116 18H4a2.5 2.5 0 01-2.5-2.5V7.126z" clipRule="evenodd" /></svg>;
+const MapPinIcon = () => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" style={{ width: '16px', height: '16px', marginRight: '6px', opacity: 0.6 }}><path fillRule="evenodd" d="M9.69 18.933l.003.001C9.89 19.02 10 19 10 19s.11.02.308-.066l.002-.001.006-.003.018-.008a5.741 5.741 0 00.281-.145l.002-.001L10 18.41l.285.145.002.001.018.008.006.004c.092.042.2.077.28.11L10 19zM10 2C7.239 2 5 4.239 5 7c0 .353.044.692.128 1.014l.001.002.002.005.004.009a6.256 6.256 0 00.02.028l.003.003.002.002A6.212 6.212 0 0010 15.5c1.075 0 2.098-.276 2.97-.768A6.212 6.212 0 0010 15.5zM10 7a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" /></svg>;
+const CalendarDaysIcon = () => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" style={{ width: '16px', height: '16px', marginRight: '6px', opacity: 0.6 }}><path fillRule="evenodd" d="M5.75 2a.75.75 0 01.75.75V4h7V2.75a.75.75 0 011.5 0V4h.25A2.75 2.75 0 0118 6.75v8.5A2.75 2.75 0 0115.25 18H4.75A2.75 2.75 0 012 15.25v-8.5A2.75 2.75 0 014.75 4H5V2.75A.75.75 0 015.75 2z" clipRule="evenodd" /></svg>;
+const LinkIcon = () => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" style={{ width: '16px', height: '16px', marginRight: '6px', opacity: 0.6 }}><path d="M12.232 4.232a2.5 2.5 0 013.536 3.536l-1.225 1.224a.75.75 0 001.061 1.06l1.224-1.224a4 4 0 00-5.656-5.656l-3 3a4 4 0 00.225 5.865.75.75 0 00.977-1.138 2.5 2.5 0 01-.142-3.667l3-3z" /><path d="M11.603 7.963a.75.75 0 00-.977 1.138 2.5 2.5 0 01.142 3.667l-3 3a2.5 2.5 0 01-3.536-3.536l1.225-1.224a.75.75 0 00-1.061-1.06l-1.224 1.224a4 4 0 005.656 5.656l3-3a4 4 0 00-.225-5.865z" /></svg>;
 
 interface Job {
   id: number;
@@ -17,8 +16,8 @@ interface Job {
   url: string;
   source?: string;
   posted_date?: string;
-  scraped_at?: string; // Ensure this matches JobCard and DashboardPage
-  created_at?: string; // Ensure this matches JobCard and DashboardPage
+  scraped_at?: string;
+  created_at?: string;
   relevance_score?: number;
   status?: 'pending' | 'interested' | 'applied' | 'ignored';
 }
@@ -35,8 +34,8 @@ const JobDetailsModal: React.FC<JobDetailsModalProps> = ({ job, onClose, onStatu
   const [isVisible, setIsVisible] = useState(false);
   
   useEffect(() => {
-    setIsVisible(true); // Trigger enter animation
-    document.body.style.overflow = 'hidden'; // Prevent background scroll
+    setIsVisible(true);
+    document.body.style.overflow = 'hidden';
     return () => {
       document.body.style.overflow = 'unset';
     };
@@ -44,34 +43,25 @@ const JobDetailsModal: React.FC<JobDetailsModalProps> = ({ job, onClose, onStatu
 
   const handleClose = () => {
     setIsVisible(false);
-    setTimeout(onClose, 300); // Match animation duration
+    setTimeout(onClose, 300);
   };
   
   const formatDate = (dateString?: string) => {
     if (!dateString) return 'Not available';
-    
     try {
       const date = new Date(dateString);
       const now = new Date();
       const diffTime = Math.abs(now.getTime() - date.getTime());
       const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-      
       if (diffDays <= 1 && date.getDate() === now.getDate()) return 'Today';
-      // Simple check for yesterday, might need refinement for edge cases like month/year change
       const yesterday = new Date(now);
       yesterday.setDate(now.getDate() - 1);
       if (diffDays <= 2 && date.toDateString() === yesterday.toDateString()) return 'Yesterday';
-      
       if (diffDays <= 7) return `${diffDays} days ago`;
-      
-      return date.toLocaleDateString(undefined, { // Use user's locale
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric'
-      });
+      return date.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
     } catch (error) {
       console.warn("Failed to parse date string for modal:", dateString, error);
-      return dateString; // Fallback to original string if parsing fails
+      return dateString;
     }
   };
 
@@ -93,80 +83,131 @@ const JobDetailsModal: React.FC<JobDetailsModalProps> = ({ job, onClose, onStatu
       }
     }
   };
-  
-  const statusTextColors = {
-    pending: 'text-slate-400',
-    interested: 'text-theme-accent-amber',
-    applied: 'text-green-400',
-    ignored: 'text-red-400',
-  };
-  const statusBgColors = {
-    pending: 'bg-slate-700',
-    interested: 'bg-amber-500/20',
-    applied: 'bg-green-500/20',
-    ignored: 'bg-red-500/20',
+
+  const statusSelectStyles: Record<string, { color: string; bgColor: string; borderColor: string }> = {
+    pending:    { color: 'var(--status-pending-text)', bgColor: 'var(--status-pending-bg)', borderColor: 'var(--status-pending-border)' },
+    interested: { color: 'var(--status-interested-text)', bgColor: 'var(--status-interested-bg)', borderColor: 'var(--status-interested-border)' },
+    applied:    { color: 'var(--status-applied-text)', bgColor: 'var(--status-applied-bg)', borderColor: 'var(--status-applied-border)' },
+    ignored:    { color: 'var(--status-ignored-text)', bgColor: 'var(--status-ignored-bg)', borderColor: 'var(--status-ignored-border)' },
   };
 
+  const currentSelectStyle = statusSelectStyles[status] || statusSelectStyles.pending;
 
   return (
     <div 
-      className="fixed inset-0 z-[100] overflow-y-auto flex items-center justify-center p-4" 
-      aria-labelledby="modal-title" 
-      role="dialog" 
-      aria-modal="true"
+      style={{
+        position: 'fixed', inset: 0, zIndex: 100,
+        overflowY: 'auto', display: 'flex', alignItems: 'center',
+        justifyContent: 'center', padding: '16px',
+      }}
+      aria-labelledby="modal-title" role="dialog" aria-modal="true"
     >
-      {/* Background overlay */}
+      {/* Backdrop */}
       <div 
-        className={`fixed inset-0 bg-black/70 backdrop-blur-sm transition-opacity duration-300 ease-in-out ${isVisible ? 'opacity-100' : 'opacity-0'}`} 
+        style={{
+          position: 'fixed', inset: 0,
+          background: 'rgba(10, 11, 26, 0.35)',
+          backdropFilter: 'blur(12px)',
+          WebkitBackdropFilter: 'blur(12px)',
+          transition: 'opacity 300ms ease-in-out',
+          opacity: isVisible ? 1 : 0,
+        }}
         aria-hidden="true" 
         onClick={handleClose}
-      ></div>
+      />
 
-      {/* Modal panel */}
+      {/* Modal Panel */}
       <div 
-        className={`relative bg-theme-surface rounded-xl shadow-2xl text-theme-text-primary max-w-4xl w-full max-h-[90vh] flex flex-col overflow-hidden transition-all duration-300 ease-in-out ${
-          isVisible ? 'opacity-100 scale-100' : 'opacity-0 scale-95'
-        }`}
+        style={{
+          position: 'relative',
+          background: 'var(--bg-surface)',
+          borderRadius: 'var(--radius-xl)',
+          boxShadow: '0 8px 32px rgba(10, 11, 26, 0.12), 0 32px 64px rgba(91, 78, 255, 0.06)',
+          border: '1px solid var(--border-subtle)',
+          color: 'var(--text-primary)',
+          maxWidth: '900px', width: '100%',
+          maxHeight: '90vh',
+          display: 'flex', flexDirection: 'column',
+          overflow: 'hidden',
+          transition: 'opacity 300ms var(--ease-out), transform 300ms var(--ease-out)',
+          opacity: isVisible ? 1 : 0,
+          transform: isVisible ? 'scale(1) translateY(0)' : 'scale(0.96) translateY(12px)',
+        }}
       >
+        {/* Gradient accent top line */}
+        <div style={{ height: '2px', background: 'linear-gradient(90deg, var(--accent), #818cf8, #3b82f6)' }} />
         {/* Header */}
-        <div className="flex justify-between items-center p-6 border-b border-slate-700">
-          <h3 className="text-2xl font-display font-semibold" id="modal-title">
+        <div style={{
+          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+          padding: 'var(--space-5) var(--space-6)',
+          borderBottom: '1px solid var(--border-subtle)',
+        }}>
+          <h3 style={{
+            fontFamily: "'Sora', sans-serif", fontSize: '22px',
+            fontWeight: 600, color: 'var(--text-primary)',
+            letterSpacing: '-0.02em',
+          }} id="modal-title">
             {job.title}
           </h3>
           <button
             type="button"
-            className="p-1 rounded-full text-slate-400 hover:text-theme-accent-cyan hover:bg-slate-700 transition-colors"
             onClick={handleClose}
+            style={{
+              padding: '4px', borderRadius: '50%',
+              color: 'var(--text-muted)', background: 'transparent',
+              border: 'none', cursor: 'pointer',
+              transition: 'color 200ms ease, background-color 200ms ease',
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--accent)'; e.currentTarget.style.background = 'var(--accent-soft)'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--text-muted)'; e.currentTarget.style.background = 'transparent'; }}
           >
             <span className="sr-only">Close</span>
             <XMarkIcon />
           </button>
         </div>
 
-        {/* Content Area (Two Columns) */}
-        <div className="flex-1 flex flex-col md:flex-row overflow-y-hidden">
-          {/* Left Column (Sticky Info & Actions) */}
-          <div className="w-full md:w-1/3 lg:w-2/5 p-6 border-b md:border-b-0 md:border-r border-slate-700 space-y-6 overflow-y-auto">
+        {/* Content */}
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'row', overflowY: 'hidden' }}>
+          {/* Left Sidebar */}
+          <div style={{
+            width: '280px', flexShrink: 0,
+            padding: 'var(--space-6)',
+            borderRight: '1px solid var(--border-subtle)',
+            overflowY: 'auto',
+            display: 'flex', flexDirection: 'column', gap: 'var(--space-5)',
+          }}>
             <div>
-              <h4 className="text-sm font-medium text-theme-text-secondary mb-1">Company</h4>
-              <p className="text-lg font-semibold text-theme-text-primary flex items-center"><BuildingOfficeIcon /> {job.company}</p>
+              <span style={{ fontSize: '12px', fontWeight: 500, color: 'var(--text-muted)', marginBottom: '4px', display: 'block' }}>Company</span>
+              <p style={{ fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)', display: 'flex', alignItems: 'center' }}><BuildingOfficeIcon /> {job.company}</p>
             </div>
             <div>
-              <h4 className="text-sm font-medium text-theme-text-secondary mb-1">Location</h4>
-              <p className="text-theme-text-primary flex items-center"><MapPinIcon /> {job.location}</p>
+              <span style={{ fontSize: '12px', fontWeight: 500, color: 'var(--text-muted)', marginBottom: '4px', display: 'block' }}>Location</span>
+              <p style={{ fontSize: '14px', color: 'var(--text-primary)', display: 'flex', alignItems: 'center' }}><MapPinIcon /> {job.location}</p>
             </div>
             
             {job.relevance_score !== undefined && (
               <div>
-                <h4 className="text-sm font-medium text-theme-text-secondary mb-1">Match Score</h4>
-                <div className="flex items-center">
-                  <div className="w-full bg-slate-700 rounded-full h-2.5">
-                    <div 
-                      className={`h-2.5 rounded-full ${job.relevance_score > 0.75 ? 'bg-theme-accent-cyan' : job.relevance_score > 0.5 ? 'bg-theme-accent-amber' : 'bg-slate-500'}`}
-                      style={{ width: `${(job.relevance_score * 100).toFixed(0)}%` }}
-                    ></div>
+                <span style={{ fontSize: '12px', fontWeight: 500, color: 'var(--text-muted)', marginBottom: '6px', display: 'block' }}>Match Score</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <div style={{
+                    flex: 1, height: '6px', borderRadius: 'var(--radius-pill)',
+                    background: 'var(--bg-subtle)', overflow: 'hidden',
+                  }}>
+                    <div style={{
+                      width: `${(job.relevance_score * 100).toFixed(0)}%`,
+                      height: '100%',
+                      borderRadius: 'var(--radius-pill)',
+                      background: job.relevance_score > 0.75
+                        ? 'linear-gradient(90deg, var(--accent), #8B7FFF)'
+                        : job.relevance_score > 0.5
+                        ? 'var(--status-interested-text)'
+                        : 'var(--text-muted)',
+                    }} />
                   </div>
-                  <span className={`ml-3 font-semibold ${job.relevance_score > 0.75 ? 'text-theme-accent-cyan' : job.relevance_score > 0.5 ? 'text-theme-accent-amber' : 'text-slate-400'}`}>
+                  <span style={{
+                    fontWeight: 700, fontSize: '15px', fontFamily: "'Sora', sans-serif",
+                    color: job.relevance_score > 0.75 ? 'var(--accent)' : job.relevance_score > 0.5 ? 'var(--status-interested-text)' : 'var(--text-muted)',
+                  }}>
                     {(job.relevance_score * 100).toFixed(0)}%
                   </span>
                 </div>
@@ -174,12 +215,18 @@ const JobDetailsModal: React.FC<JobDetailsModalProps> = ({ job, onClose, onStatu
             )}
 
             <div>
-              <h4 className="text-sm font-medium text-theme-text-secondary mb-1">Status</h4>
+              <span style={{ fontSize: '12px', fontWeight: 500, color: 'var(--text-muted)', marginBottom: '6px', display: 'block' }}>Status</span>
               <select
                 value={status}
                 onChange={(e) => handleStatusChangeInternal(e.target.value)}
                 disabled={isUpdating}
-                className={`w-full text-sm font-medium py-2 px-3 rounded-md border border-slate-600 focus:ring-1 focus:ring-theme-accent-cyan focus:border-theme-accent-cyan transition-colors ${statusTextColors[status]} ${statusBgColors[status]} bg-theme-bg`}
+                className="input-field"
+                style={{
+                  fontSize: '13px', fontWeight: 500, padding: '8px 28px 8px 12px',
+                  color: currentSelectStyle.color,
+                  background: currentSelectStyle.bgColor,
+                  borderColor: currentSelectStyle.borderColor,
+                }}
               >
                 <option value="pending">Pending</option>
                 <option value="interested">Interested</option>
@@ -190,43 +237,61 @@ const JobDetailsModal: React.FC<JobDetailsModalProps> = ({ job, onClose, onStatu
 
             {job.posted_date && (
               <div>
-                <h4 className="text-sm font-medium text-theme-text-secondary mb-1">Posted</h4>
-                <p className="text-theme-text-primary flex items-center"><CalendarDaysIcon /> {formatDate(job.posted_date)}</p>
+                <span style={{ fontSize: '12px', fontWeight: 500, color: 'var(--text-muted)', marginBottom: '4px', display: 'block' }}>Posted</span>
+                <p style={{ fontSize: '14px', color: 'var(--text-primary)', display: 'flex', alignItems: 'center' }}><CalendarDaysIcon /> {formatDate(job.posted_date)}</p>
               </div>
             )}
             {job.source && (
               <div>
-                <h4 className="text-sm font-medium text-theme-text-secondary mb-1">Source</h4>
-                <p className="text-theme-text-primary">{job.source}</p>
+                <span style={{ fontSize: '12px', fontWeight: 500, color: 'var(--text-muted)', marginBottom: '4px', display: 'block' }}>Source</span>
+                <p style={{ fontSize: '14px', color: 'var(--text-primary)' }}>{job.source}</p>
               </div>
             )}
-             {job.url && (
-                <div>
-                    <h4 className="text-sm font-medium text-theme-text-secondary mb-1">Original Post</h4>
-                    <a 
-                        href={job.url} target="_blank" rel="noopener noreferrer"
-                        className="inline-flex items-center text-theme-accent-cyan hover:text-theme-accent-cyan-darker hover:underline break-all"
-                        onClick={(e) => e.stopPropagation()}
-                    >
-                        <LinkIcon /> View Original
-                    </a>
-                </div>
+            {job.url && (
+              <div>
+                <span style={{ fontSize: '12px', fontWeight: 500, color: 'var(--text-muted)', marginBottom: '4px', display: 'block' }}>Original Post</span>
+                <a
+                  href={job.url} target="_blank" rel="noopener noreferrer"
+                  style={{
+                    display: 'inline-flex', alignItems: 'center',
+                    color: 'var(--accent)', fontSize: '14px', fontWeight: 500,
+                    textDecoration: 'none', wordBreak: 'break-all',
+                  }}
+                  onClick={(e) => e.stopPropagation()}
+                  onMouseEnter={(e) => (e.currentTarget.style.textDecoration = 'underline')}
+                  onMouseLeave={(e) => (e.currentTarget.style.textDecoration = 'none')}
+                >
+                  <LinkIcon /> View Original
+                </a>
+              </div>
             )}
 
             <button
               type="button"
-              className="w-full mt-auto inline-flex items-center justify-center px-6 py-3 border border-transparent text-base font-semibold rounded-lg shadow-md text-theme-bg bg-theme-accent-cyan hover:bg-theme-accent-cyan-darker focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-theme-surface focus:ring-theme-accent-cyan transition-colors"
+              className="btn btn-primary"
               onClick={handleApply}
+              style={{ width: '100%', justifyContent: 'center', marginTop: 'auto' }}
             >
               Apply Now
             </button>
           </div>
 
-          {/* Right Column (Scrollable Description) */}
-          <div className="flex-1 p-6 overflow-y-auto">
-            <h4 className="font-display text-xl font-semibold text-theme-text-primary mb-3">Job Description</h4>
-            <div className="prose prose-sm prose-invert max-w-none text-theme-text-secondary leading-relaxed whitespace-pre-line">
-              {/* Using prose classes for nice typography if description is HTML/Markdown, or just use <p> */}
+          {/* Right: Description */}
+          <div style={{
+            flex: 1, padding: 'var(--space-6)',
+            overflowY: 'auto',
+          }}>
+            <h4 style={{
+              fontFamily: "'Sora', sans-serif", fontSize: '18px',
+              fontWeight: 600, color: 'var(--text-primary)',
+              marginBottom: 'var(--space-4)',
+            }}>
+              Job Description
+            </h4>
+            <div style={{
+              fontSize: '14px', lineHeight: 1.7,
+              color: 'var(--text-secondary)', whiteSpace: 'pre-line',
+            }}>
               {job.description || "No description available."}
             </div>
           </div>

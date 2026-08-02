@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useLoadingState } from '../hooks/useLoadingState';
@@ -37,7 +37,6 @@ const RegisterPage = () => {
       const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Registration timed out')), 10000));
       await Promise.race([register(email, password), timeoutPromise]);
 
-      // Registration successful — navigate to dashboard
       setRegistrationSuccess(true);
       navigate('/dashboard');
     } catch (err: any) {
@@ -67,84 +66,153 @@ const RegisterPage = () => {
     }
   };
 
+  /* Password strength calculation */
+  const passwordStrength = useMemo(() => {
+    if (!password) return { score: 0, label: '', color: 'transparent' };
+    let score = 0;
+    if (password.length >= 8) score++;
+    if (password.length >= 12) score++;
+    if (/[A-Z]/.test(password)) score++;
+    if (/[0-9]/.test(password)) score++;
+    if (/[^A-Za-z0-9]/.test(password)) score++;
+
+    const levels = [
+      { label: 'Very Weak', color: '#DC2626' },
+      { label: 'Weak', color: '#F59E0B' },
+      { label: 'Fair', color: '#D97706' },
+      { label: 'Good', color: '#059669' },
+      { label: 'Strong', color: '#059669' },
+    ];
+    const level = levels[Math.min(score, levels.length) - 1] || levels[0];
+    return { score, label: level.label, color: level.color };
+  }, [password]);
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-theme-bg py-12 px-4 sm:px-6 lg:px-8">
-      <div className="bg-theme-surface p-8 sm:p-10 rounded-xl shadow-2xl max-w-md w-full space-y-8">
+    <div className="auth-page">
+      {/* Left: Brand Panel */}
+      <div className="auth-brand-panel">
+        <div className="auth-brand-logo">
+          <svg width="24" height="24" viewBox="0 0 40 40" fill="none">
+            <path d="M20 0L25.3301 14.6699L40 20L25.3301 25.3301L20 40L14.6699 25.3301L0 20L14.6699 14.6699L20 0Z" fill="white"/>
+          </svg>
+          IntelliApply
+        </div>
+
         <div>
-          <h2 className="mt-6 text-center text-3xl font-display font-extrabold text-theme-text-primary">
-            Create Your IntelliApply Account
-          </h2>
-          <p className="mt-2 text-center text-sm text-theme-text-secondary">
-            Or{' '}
-            <Link to="/login" className="font-medium text-theme-accent-cyan hover:text-theme-accent-cyan-darker">
-              sign in to your existing account
-            </Link>
+          <h2 className="auth-brand-headline">Start your<br />smarter job search.</h2>
+          <p className="auth-brand-sub">
+            Join thousands of candidates who use AI-powered matching to find roles that truly fit their skills and career goals.
           </p>
         </div>
 
-        {(registerError || authContextError) && !registrationSuccess && (
-          <div className="bg-amber-500/10 border border-amber-500/30 text-amber-300 px-4 py-3 rounded-md relative" role="alert">
-            <span className="block sm:inline">{registerError || authContextError}</span>
+        <div className="auth-testimonial">
+          <p className="auth-testimonial-text">
+            "The match scoring is uncanny — it found roles I would have never discovered on my own. Saved me weeks of searching."
+          </p>
+          <div className="auth-testimonial-author">
+            <div className="auth-testimonial-avatar">SP</div>
+            <div>
+              <div style={{ fontSize: '13px', fontWeight: 500, color: 'rgba(255,255,255,0.85)' }}>Sarah P.</div>
+              <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.4)' }}>Product Designer, now at Figma</div>
+            </div>
           </div>
-        )}
+        </div>
+      </div>
 
-        {registrationSuccess && (
-          <div className="bg-theme-accent-cyan/10 border border-theme-accent-cyan/30 text-theme-accent-cyan px-4 py-3 rounded-md relative" role="alert">
-            <span className="block sm:inline font-medium">Registration successful!</span>
-            <p className="mt-2 text-sm">Redirecting to your dashboard...</p>
-          </div>
-        )}
+      {/* Right: Form Panel */}
+      <div className="auth-form-panel">
+        <div className="auth-form-wrapper">
+          <h2 className="auth-form-title">Create your account</h2>
+          <p className="auth-form-subtitle">
+            Already have an account?{' '}
+            <Link to="/login" style={{ color: 'var(--accent)', fontWeight: 500, textDecoration: 'none' }}>
+              Sign in
+            </Link>
+          </p>
 
-        {!registrationSuccess && (
-          <form className="space-y-6" onSubmit={handleSubmit}>
-            <div>
-              <label htmlFor="email-address" className="block text-sm font-medium text-theme-text-secondary mb-1">Email address</label>
-              <input
-                id="email-address" name="email" type="email" autoComplete="email" required
-                className="appearance-none block w-full px-3 py-2 bg-theme-bg border border-slate-700 rounded-md shadow-sm placeholder-slate-500 text-theme-text-primary focus:outline-none focus:ring-2 focus:ring-theme-accent-cyan focus:border-theme-accent-cyan sm:text-sm"
-                placeholder="you@example.com" value={email} onChange={(e) => { setEmail(e.target.value); handleClearErrors(); }}
-              />
+          {(registerError || authContextError) && !registrationSuccess && (
+            <div className="alert alert-error" role="alert" style={{ marginBottom: '18px' }}>
+              {registerError || authContextError}
             </div>
-            <div>
-              <label htmlFor="password" className="block text-sm font-medium text-theme-text-secondary mb-1">Password</label>
-              <input
-                id="password" name="password" type="password" autoComplete="new-password" required
-                className="appearance-none block w-full px-3 py-2 bg-theme-bg border border-slate-700 rounded-md shadow-sm placeholder-slate-500 text-theme-text-primary focus:outline-none focus:ring-2 focus:ring-theme-accent-cyan focus:border-theme-accent-cyan sm:text-sm"
-                placeholder="Password (min. 8 characters)" value={password} onChange={(e) => { setPassword(e.target.value); handleClearErrors(); }}
-              />
+          )}
+
+          {registrationSuccess && (
+            <div className="alert alert-success" role="alert" style={{ marginBottom: '18px' }}>
+              <strong>Registration successful!</strong>
+              <p style={{ marginTop: '4px', fontSize: '13px' }}>Redirecting to your dashboard...</p>
             </div>
-            <div>
-              <label htmlFor="confirm-password" className="block text-sm font-medium text-theme-text-secondary mb-1">Confirm Password</label>
-              <input
-                id="confirm-password" name="confirm-password" type="password" autoComplete="new-password" required
-                className="appearance-none block w-full px-3 py-2 bg-theme-bg border border-slate-700 rounded-md shadow-sm placeholder-slate-500 text-theme-text-primary focus:outline-none focus:ring-2 focus:ring-theme-accent-cyan focus:border-theme-accent-cyan sm:text-sm"
-                placeholder="Confirm Password" value={confirmPassword} onChange={(e) => { setConfirmPassword(e.target.value); handleClearErrors(); }}
-              />
-            </div>
-            <div>
-              <button
-                type="submit" disabled={loading}
-                className="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-semibold text-theme-bg bg-theme-accent-cyan hover:bg-theme-accent-cyan-darker focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-theme-surface focus:ring-theme-accent-cyan disabled:opacity-70 transition-colors mb-4"
-              >
-                {loading ? 'Creating Account...' : 'Create Account'}
+          )}
+
+          {!registrationSuccess && (
+            <form onSubmit={handleSubmit}>
+              <div className="form-group">
+                <label htmlFor="email-address" className="input-label">Email address</label>
+                <input
+                  id="email-address" name="email" type="email" autoComplete="email" required
+                  className="input-field"
+                  placeholder="you@example.com"
+                  value={email}
+                  onChange={(e) => { setEmail(e.target.value); handleClearErrors(); }}
+                />
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="password" className="input-label">Password</label>
+                <input
+                  id="password" name="password" type="password" autoComplete="new-password" required
+                  className="input-field"
+                  placeholder="Min. 8 characters"
+                  value={password}
+                  onChange={(e) => { setPassword(e.target.value); handleClearErrors(); }}
+                />
+                {/* Password strength meter */}
+                {password && (
+                  <div style={{ marginTop: '8px' }}>
+                    <div style={{ display: 'flex', gap: '4px', marginBottom: '4px' }}>
+                      {[1, 2, 3, 4, 5].map(i => (
+                        <div key={i} style={{
+                          flex: 1, height: '3px', borderRadius: '2px',
+                          background: i <= passwordStrength.score ? passwordStrength.color : 'var(--bg-subtle)',
+                          transition: 'background-color 0.3s ease',
+                        }} />
+                      ))}
+                    </div>
+                    <span style={{ fontSize: '11px', color: passwordStrength.color, fontWeight: 500, transition: 'color 0.3s ease' }}>
+                      {passwordStrength.label}
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="confirm-password" className="input-label">Confirm Password</label>
+                <input
+                  id="confirm-password" name="confirm-password" type="password" autoComplete="new-password" required
+                  className="input-field"
+                  placeholder="Confirm your password"
+                  value={confirmPassword}
+                  onChange={(e) => { setConfirmPassword(e.target.value); handleClearErrors(); }}
+                />
+              </div>
+
+              <button type="submit" disabled={loading} className="btn btn-primary" style={{ width: '100%', justifyContent: 'center' }}>
+                {loading ? (
+                  <>
+                    <span className="spinner spinner-sm" style={{ borderTopColor: 'var(--text-on-accent)' }} />
+                    Creating Account...
+                  </>
+                ) : 'Create Account'}
               </button>
 
-              <div className="relative my-6">
-                <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-slate-700"></div>
-                </div>
-                <div className="relative flex justify-center text-sm">
-                  <span className="px-2 bg-theme-surface text-theme-text-secondary">Or continue with</span>
-                </div>
-              </div>
+              <div className="form-divider">or continue with</div>
 
               <button
                 type="button"
                 onClick={handleGoogleRegister}
                 disabled={loading}
-                className="w-full flex justify-center items-center py-3 px-4 border border-slate-700 rounded-md shadow-sm text-sm font-semibold text-theme-text-primary bg-theme-bg hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-theme-surface focus:ring-theme-accent-cyan disabled:opacity-70 transition-colors cursor-pointer"
+                className="btn btn-google"
               >
-                <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24" fill="currentColor">
+                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
                   <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
                   <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05" />
@@ -152,9 +220,9 @@ const RegisterPage = () => {
                 </svg>
                 Google
               </button>
-            </div>
-          </form>
-        )}
+            </form>
+          )}
+        </div>
       </div>
     </div>
   );
