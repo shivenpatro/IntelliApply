@@ -121,9 +121,9 @@ const JobDetailsModal: React.FC<JobDetailsModalProps> = ({ job, onClose, onStatu
         style={{
           position: 'relative',
           background: 'var(--bg-surface)',
-          borderRadius: 'var(--radius-xl)',
-          boxShadow: '0 8px 32px rgba(10, 11, 26, 0.12), 0 32px 64px rgba(91, 78, 255, 0.06)',
-          border: '1px solid var(--border-subtle)',
+          borderRadius: 'var(--radius-md)',
+          boxShadow: '0 8px 32px rgba(16, 18, 16, 0.12), 0 32px 64px rgba(27, 94, 66, 0.06)',
+          border: '1px solid var(--border-default)',
           color: 'var(--text-primary)',
           maxWidth: '900px', width: '100%',
           maxHeight: '90vh',
@@ -134,8 +134,8 @@ const JobDetailsModal: React.FC<JobDetailsModalProps> = ({ job, onClose, onStatu
           transform: isVisible ? 'scale(1) translateY(0)' : 'scale(0.96) translateY(12px)',
         }}
       >
-        {/* Gradient accent top line */}
-        <div style={{ height: '2px', background: 'linear-gradient(90deg, var(--accent), #818cf8, #3b82f6)' }} />
+        {/* Editorial accent top line */}
+        <div style={{ height: 2, background: 'var(--accent)' }} />
         {/* Header */}
         <div style={{
           display: 'flex', justifyContent: 'space-between', alignItems: 'center',
@@ -143,9 +143,9 @@ const JobDetailsModal: React.FC<JobDetailsModalProps> = ({ job, onClose, onStatu
           borderBottom: '1px solid var(--border-subtle)',
         }}>
           <h3 style={{
-            fontFamily: "'Sora', sans-serif", fontSize: '22px',
-            fontWeight: 600, color: 'var(--text-primary)',
-            letterSpacing: '-0.02em',
+            fontFamily: "'Playfair Display', serif", fontSize: '24px',
+            fontWeight: 500, color: 'var(--text-primary)',
+            letterSpacing: '-0.015em',
           }} id="modal-title">
             {job.title}
           </h3>
@@ -198,14 +198,14 @@ const JobDetailsModal: React.FC<JobDetailsModalProps> = ({ job, onClose, onStatu
                       height: '100%',
                       borderRadius: 'var(--radius-pill)',
                       background: job.relevance_score > 0.75
-                        ? 'linear-gradient(90deg, var(--accent), #8B7FFF)'
+                        ? 'var(--accent)'
                         : job.relevance_score > 0.5
                         ? 'var(--status-interested-text)'
                         : 'var(--text-muted)',
                     }} />
                   </div>
                   <span style={{
-                    fontWeight: 700, fontSize: '15px', fontFamily: "'Sora', sans-serif",
+                    fontWeight: 600, fontSize: '15px', fontFamily: "'Playfair Display', serif",
                     color: job.relevance_score > 0.75 ? 'var(--accent)' : job.relevance_score > 0.5 ? 'var(--status-interested-text)' : 'var(--text-muted)',
                   }}>
                     {(job.relevance_score * 100).toFixed(0)}%
@@ -282,8 +282,8 @@ const JobDetailsModal: React.FC<JobDetailsModalProps> = ({ job, onClose, onStatu
             overflowY: 'auto',
           }}>
             <h4 style={{
-              fontFamily: "'Sora', sans-serif", fontSize: '18px',
-              fontWeight: 600, color: 'var(--text-primary)',
+              fontFamily: "'Playfair Display', serif", fontSize: '18px',
+              fontWeight: 500, color: 'var(--text-primary)',
               marginBottom: 'var(--space-4)',
             }}>
               Job Description

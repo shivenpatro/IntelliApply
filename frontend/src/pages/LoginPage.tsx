@@ -3,6 +3,12 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useLoadingState } from '../hooks/useLoadingState';
 
+const IntelliApplyLogo = () => (
+  <svg width="22" height="22" viewBox="0 0 40 40" fill="none" aria-hidden="true">
+    <path d="M20 0L25.3301 14.6699L40 20L25.3301 25.3301L20 40L14.6699 25.3301L0 20L14.6699 14.6699L20 0Z" fill="currentColor"/>
+  </svg>
+);
+
 const LoginPage = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -11,61 +17,49 @@ const LoginPage = () => {
   const [loading, setLoading, resetLoading] = useLoadingState(false, 15000);
   const navigate = useNavigate();
 
-  useEffect(() => {
-    return () => resetLoading();
-  }, [resetLoading]);
+  useEffect(() => () => resetLoading(), [resetLoading]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoginError(null);
     setLoading(true);
-
     try {
       const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Login request timed out')), 10000));
       await Promise.race([login(email, password), timeoutPromise]);
       navigate('/dashboard');
     } catch (err: any) {
-      if (err.message?.includes('timed out')) {
-        setLoginError('Login request timed out. Please try again later.');
-      } else if (err.message?.includes('Too many requests')) {
-        setLoginError('Too many login attempts. Please wait a moment and try again.');
-      } else {
-        setLoginError(err.message || 'Failed to log in. Please check your credentials.');
-      }
+      if (err.message?.includes('timed out')) setLoginError('Login request timed out. Please try again later.');
+      else if (err.message?.includes('Too many requests')) setLoginError('Too many login attempts. Please wait a moment and try again.');
+      else setLoginError(err.message || 'Failed to log in. Please check your credentials.');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleClearErrors = () => {
-    setLoginError(null);
-    clearError();
-  };
+  const handleClearErrors = () => { setLoginError(null); clearError(); };
 
   const handleGoogleLogin = async () => {
     setLoginError(null);
-    try {
-      await loginWithGoogle();
-    } catch (err: any) {
-      setLoginError(err.message || 'Failed to login with Google');
-    }
+    try { await loginWithGoogle(); } catch (err: any) { setLoginError(err.message || 'Failed to login with Google'); }
   };
 
   return (
     <div className="auth-page">
-      {/* Left: Brand Panel */}
+      {/* Left: Editorial brand panel */}
       <div className="auth-brand-panel">
-        <div className="auth-brand-logo">
-          <svg width="24" height="24" viewBox="0 0 40 40" fill="none">
-            <path d="M20 0L25.3301 14.6699L40 20L25.3301 25.3301L20 40L14.6699 25.3301L0 20L14.6699 14.6699L20 0Z" fill="white"/>
-          </svg>
-          IntelliApply
-        </div>
+        <Link to="/" className="auth-brand-logo" style={{ color: 'var(--text-primary)', textDecoration: 'none' }}>
+          <span style={{ color: 'var(--accent)' }}><IntelliApplyLogo /></span>
+          <span>IntelliApply</span>
+        </Link>
 
         <div>
-          <h2 className="auth-brand-headline">Your next job<br />finds you.</h2>
+          <div className="eyebrow-rule" style={{ marginBottom: 'var(--space-6)' }}>№ AUTH / 001</div>
+          <h2 className="auth-brand-headline">
+            Your next job<br />
+            <em>finds you.</em>
+          </h2>
           <p className="auth-brand-sub">
-            AI-powered matching that learns your preferences and surfaces opportunities before your competitors even know they exist.
+            AI-powered matching that surfaces the roles worth applying to — quietly, behind the noise.
           </p>
         </div>
 
@@ -76,26 +70,26 @@ const LoginPage = () => {
           <div className="auth-testimonial-author">
             <div className="auth-testimonial-avatar">AK</div>
             <div>
-              <div style={{ fontSize: '13px', fontWeight: 500, color: 'rgba(255,255,255,0.85)' }}>Arjun K.</div>
-              <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.4)' }}>Software Engineer, ex-Amazon intern</div>
+              <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-primary)' }}>Arjun K.</div>
+              <div style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: "'IBM Plex Mono', monospace", letterSpacing: '0.06em', textTransform: 'uppercase' }}>Software Engineer</div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Right: Form Panel */}
+      {/* Right: Form panel */}
       <div className="auth-form-panel">
         <div className="auth-form-wrapper">
           <h2 className="auth-form-title">Welcome back</h2>
           <p className="auth-form-subtitle">
-            Sign in to your account to continue.{' '}
+            Sign in to continue.{' '}
             <Link to="/register" style={{ color: 'var(--accent)', fontWeight: 500, textDecoration: 'none' }}>
               Create an account
             </Link>
           </p>
 
           {(loginError || authContextError) && (
-            <div className="alert alert-error" role="alert" style={{ marginBottom: '18px' }}>
+            <div className="alert alert-error" role="alert" style={{ marginBottom: 18 }}>
               {loginError || authContextError}
             </div>
           )}
@@ -131,12 +125,12 @@ const LoginPage = () => {
               />
             </div>
 
-            <div className="checkbox-wrapper" style={{ marginBottom: '20px' }}>
+            <div className="checkbox-wrapper" style={{ marginBottom: 20 }}>
               <input id="remember-me" name="remember-me" type="checkbox" />
               <label htmlFor="remember-me">Remember me</label>
             </div>
 
-            <button type="submit" disabled={loading} className="btn btn-primary" style={{ width: '100%', justifyContent: 'center' }}>
+            <button type="submit" disabled={loading} className="btn btn-primary" style={{ width: '100%', justifyContent: 'center', padding: '12px 20px' }}>
               {loading ? (
                 <>
                   <span className="spinner spinner-sm" style={{ borderTopColor: 'var(--text-on-accent)' }} />
@@ -148,13 +142,8 @@ const LoginPage = () => {
 
           <div className="form-divider">or continue with</div>
 
-          <button
-            type="button"
-            onClick={handleGoogleLogin}
-            disabled={loading}
-            className="btn btn-google"
-          >
-            <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+          <button type="button" onClick={handleGoogleLogin} disabled={loading} className="btn btn-google">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
               <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
               <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
               <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05" />
@@ -163,8 +152,8 @@ const LoginPage = () => {
             Google
           </button>
 
-          <div style={{ marginTop: '24px', textAlign: 'center' }}>
-            <Link to="/forgot-password" style={{ fontSize: '13px', color: 'var(--text-muted)', textDecoration: 'none' }}>
+          <div style={{ marginTop: 24, textAlign: 'center' }}>
+            <Link to="/forgot-password" style={{ fontSize: 13, color: 'var(--text-muted)', textDecoration: 'none' }}>
               Forgot your password?
             </Link>
           </div>

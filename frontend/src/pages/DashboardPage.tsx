@@ -234,7 +234,7 @@ const DashboardPage = () => {
     return (
       <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-base)', padding: '16px' }}>
         <div className="spinner" />
-        <p style={{ marginTop: '16px', fontSize: '18px', fontFamily: "'Sora', sans-serif", fontWeight: 500, color: 'var(--text-primary)' }}>Authenticating...</p>
+        <p style={{ marginTop: '16px', fontSize: '18px', fontFamily: "'Playfair Display', serif", fontWeight: 500, color: 'var(--text-primary)' }}>Authenticating...</p>
       </div>
     );
   }
@@ -243,7 +243,7 @@ const DashboardPage = () => {
     return (
       <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-base)', padding: '16px' }}>
         <div className="spinner" style={{ marginBottom: '16px' }} />
-        <p style={{ fontSize: '20px', fontFamily: "'Sora', sans-serif", fontWeight: 600, color: 'var(--text-primary)', marginBottom: '8px' }}>Refreshing Jobs...</p>
+        <p style={{ fontSize: '20px', fontFamily: "'Playfair Display', serif", fontWeight: 500, color: 'var(--text-primary)', marginBottom: '8px' }}>Refreshing jobs</p>
         <div style={{ height: '24px', textAlign: 'center', maxWidth: '400px', width: '100%' }}>
           {displayedFakeMessage && (
             <p key={displayedFakeMessage} className="animate-messageFadeInOut" style={{ fontSize: '14px', color: 'var(--accent)' }}>
@@ -258,7 +258,7 @@ const DashboardPage = () => {
   const DataLoadingIndicator = () => (
     <div style={{ minHeight: 'calc(100vh - 16rem)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
       <div className="spinner" />
-      <p style={{ marginTop: '16px', fontSize: '18px', fontFamily: "'Sora', sans-serif", fontWeight: 500, color: 'var(--text-primary)' }}>Loading your personalized job matches...</p>
+      <p style={{ marginTop: '16px', fontSize: '18px', fontFamily: "'Playfair Display', serif", fontWeight: 500, color: 'var(--text-primary)' }}>Loading your personalized job matches</p>
     </div>
   );
 
@@ -284,7 +284,7 @@ const DashboardPage = () => {
         {/* Header */}
         <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 'var(--space-6)', gap: 'var(--space-4)' }}>
           <div>
-            <h1 className="text-h1">Your Job <span className="text-accent-gradient">Matches</span></h1>
+            <h1 className="text-h1">Your Job <span className="text-accent">Matches</span></h1>
             <p className="text-body" style={{ marginTop: '4px' }}>Personalized recommendations based on your profile.</p>
           </div>
           <button
@@ -318,13 +318,14 @@ const DashboardPage = () => {
           {countCardData.map(item => (
             <div key={item.title} className="card card-hover card-feature" style={{ padding: 'var(--space-5)' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <p className="counter-animate" style={{ fontSize: '32px', fontWeight: 700, color: item.color, fontFamily: "'Sora', sans-serif", letterSpacing: '-0.02em' }}>{item.count}</p>
+                <p className="counter-animate" style={{ fontSize: '36px', fontWeight: 500, color: item.color, fontFamily: "'Playfair Display', serif", letterSpacing: '-0.02em' }}>{item.count}</p>
                 <div style={{ 
-                  padding: '10px', borderRadius: 'var(--radius-md)', 
-                  background: `linear-gradient(135deg, ${item.bgColor}, transparent)`, 
-                  color: item.color,
-                  transition: 'transform 0.3s ease, box-shadow 0.3s ease',
-                }}
+                   padding: '10px', borderRadius: 'var(--radius-sm)',
+                   background: item.bgColor,
+                   border: `1px solid ${item.color}22`,
+                   color: item.color,
+                   transition: 'transform 0.3s ease',
+                 }}
                   onMouseEnter={(e) => { e.currentTarget.style.transform = 'scale(1.1)'; }}
                   onMouseLeave={(e) => { e.currentTarget.style.transform = 'scale(1)'; }}
                 >
@@ -343,14 +344,14 @@ const DashboardPage = () => {
           <div className="card card-feature" style={{ textAlign: 'center', padding: 'var(--space-8)' }}>
             <div style={{ 
               width: '64px', height: '64px', borderRadius: '50%', 
-              background: 'linear-gradient(135deg, var(--accent-soft), rgba(129, 140, 248, 0.12))', 
-              display: 'flex', alignItems: 'center', justifyContent: 'center', 
-              margin: '0 auto var(--space-4)', color: 'var(--accent)',
-              boxShadow: '0 8px 24px rgba(91, 78, 255, 0.1)',
-            }}>
-              <BriefcaseIcon className="w-7 h-7" />
-            </div>
-            <h3 className="text-h2" style={{ marginBottom: 'var(--space-3)' }}>No Job <span className="text-accent-gradient">Matches</span> Found Yet</h3>
+      background: 'var(--accent-soft)',
+      border: '1px solid var(--border-accent)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      margin: '0 auto var(--space-4)', color: 'var(--accent)',
+    }}>
+      <BriefcaseIcon className="w-7 h-7" />
+    </div>
+    <h3 className="text-h2" style={{ marginBottom: 'var(--space-3)' }}>No Job <span className="text-accent">Matches</span> Found Yet</h3>
             <p className="text-body" style={{ maxWidth: '480px', margin: '0 auto var(--space-5)' }}>
               Ensure your profile is complete with skills, experiences, and an uploaded resume for the best results. Or try refreshing jobs.
             </p>

@@ -1,68 +1,67 @@
+import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { useEffect, useRef, useState } from 'react';
+import TextReveal from '../components/motion/TextReveal';
+import MagneticButton from '../components/motion/MagneticButton';
+import ParallaxImage from '../components/motion/ParallaxImage';
 
-/* ── Inline SVG Icons ── */
+const MatchOrb = lazy(() => import('../components/three/MatchOrb'));
+
+/* ── Inline SVG icons ── */
 const ArrowRightIcon = () => (
-  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+  <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
     <path d="M3 8h10M9 4l4 4-4 4" />
   </svg>
 );
 
 const DocumentIcon = () => (
-  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
     <path d="M14.5 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V7.5L14.5 2z" />
     <path d="M14 2v6h6M16 13H8M16 17H8M10 9H8" />
   </svg>
 );
 
 const SearchIcon = () => (
-  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
     <circle cx="11" cy="11" r="8" />
     <path d="M21 21l-4.35-4.35" />
   </svg>
 );
 
 const SparklesIcon = () => (
-  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
     <path d="M12 3l1.912 5.813L20 12l-6.088 3.187L12 21l-1.912-5.813L4 12l6.088-3.187L12 3z" />
   </svg>
 );
 
-/* ── Animated Counter Hook ── */
-const useCountUp = (target: string, duration = 1500) => {
+/* ── Animated count-up with shared observer ── */
+const useCountUp = (target: string, duration = 1600) => {
   const [count, setCount] = useState('0');
   const ref = useRef<HTMLDivElement>(null);
-  const hasAnimated = useRef(false);
+  const started = useRef(false);
 
   useEffect(() => {
     const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting && !hasAnimated.current) {
-          hasAnimated.current = true;
-          const numericPart = parseFloat(target.replace(/[^0-9.]/g, ''));
-          const suffix = target.replace(/[0-9.]/g, '');
-          const isDecimal = target.includes('.');
-          const startTime = performance.now();
+      (entries) => {
+        const entry = entries[0];
+        if (!entry.isIntersecting || started.current) return;
+        started.current = true;
 
-          const animate = (currentTime: number) => {
-            const elapsed = currentTime - startTime;
-            const progress = Math.min(elapsed / duration, 1);
-            const eased = 1 - Math.pow(1 - progress, 3); // easeOutCubic
-            const current = numericPart * eased;
+        const numeric = parseFloat(target.replace(/[^0-9.]/g, ''));
+        const suffix = target.replace(/[0-9.]/g, '');
+        const dec = target.includes('.');
+        const t0 = performance.now();
 
-            if (isDecimal) {
-              setCount(current.toFixed(1) + suffix);
-            } else {
-              setCount(Math.floor(current).toLocaleString() + suffix);
-            }
-
-            if (progress < 1) requestAnimationFrame(animate);
-          };
-          requestAnimationFrame(animate);
-        }
+        const tick = (now: number) => {
+          const p = Math.min((now - t0) / duration, 1);
+          const eased = 1 - Math.pow(1 - p, 3);
+          const v = numeric * eased;
+          setCount(dec ? v.toFixed(1) + suffix : Math.floor(v).toLocaleString() + suffix);
+          if (p < 1) requestAnimationFrame(tick);
+        };
+        requestAnimationFrame(tick);
       },
-      { threshold: 0.3 }
+      { threshold: 0.4 }
     );
 
     if (ref.current) observer.observe(ref.current);
@@ -72,376 +71,384 @@ const useCountUp = (target: string, duration = 1500) => {
   return { count, ref };
 };
 
+/* ── Process rows data ── */
+const PROCESS_ROWS = [
+  {
+    index: '01',
+    titleLine1: 'Your skills,',
+    titleLine2: 'extracted.',
+    eyebrow: 'Resume Intelligence',
+    body: 'Upload once. Our parser builds a living profile — skills, experience depth, seniority — and matches by meaning, not keywords.',
+    link: { to: '/register', label: 'Learn more' },
+  },
+  {
+    index: '02',
+    titleLine1: 'Jobs found,',
+    titleLine2: 'while you sleep.',
+    eyebrow: 'Automated Discovery',
+    body: 'A scraping engine watches HackerNews, WeWorkRemotely and more. New listings arrive de-duplicated, ranked, and ready.',
+    link: { to: '/register', label: 'Learn more' },
+  },
+  {
+    index: '03',
+    titleLine1: 'Real fit,',
+    titleLine2: 'not just keywords.',
+    eyebrow: 'AI Matching',
+    body: 'TF-IDF vectors + cosine similarity understand context and weigh experience depth to surface true compatibility.',
+    link: { to: '/register', label: 'Learn more' },
+  },
+];
+
+/* ── Editorial visuals per process row ── */
+const ResumeVisual = () => (
+  <div className="feature-visual-resume card-hover">
+    <div className="field-row">
+      <span className="field-label">Name</span>
+      <span className="field-value">Alex Chen</span>
+    </div>
+    <div className="field-row">
+      <span className="field-label">Skills</span>
+      <span className="field-highlight">React</span>
+      <span className="field-highlight">TypeScript</span>
+      <span className="field-highlight">Python</span>
+    </div>
+    <div className="field-row">
+      <span className="field-label">Level</span>
+      <span className="field-value">Senior · 5+ yrs</span>
+    </div>
+    <div className="field-row">
+      <span className="field-label">Focus</span>
+      <span className="field-value">Full-Stack Engineering</span>
+    </div>
+  </div>
+);
+
+const FeedVisual = () => (
+  <div className="feature-visual-feed card-hover">
+    <div style={{
+      fontFamily: "'IBM Plex Mono', monospace",
+      fontSize: '10px',
+      letterSpacing: '0.12em',
+      textTransform: 'uppercase',
+      color: 'var(--text-muted)',
+      padding: '0 var(--space-3) var(--space-3)',
+      display: 'flex',
+      alignItems: 'center',
+      gap: 8,
+    }}>
+      <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--accent)', animation: 'messageFadeInOut 2s infinite' }} />
+      Live job feed
+    </div>
+    {[
+      { dot: '', title: 'Senior Frontend Engineer', company: 'Stripe · Remote', time: '2m' },
+      { dot: 'green', title: 'Full-Stack Developer', company: 'Vercel · NYC', time: '8m' },
+      { dot: 'amber', title: 'React Developer', company: 'Linear · Remote', time: '15m' },
+      { dot: '', title: 'Software Engineer II', company: 'Mercury · SF', time: '22m' },
+      { dot: 'green', title: 'Backend Engineer', company: 'Notion · Remote', time: '31m' },
+    ].map((item, i) => (
+      <div key={i} className="feed-item">
+        <div className={`feed-dot ${item.dot}`} />
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize: '13px', fontWeight: 500, color: 'var(--text-primary)' }}>{item.title}</div>
+          <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{item.company}</div>
+        </div>
+        <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontFamily: "'IBM Plex Mono', monospace" }}>{item.time}</span>
+      </div>
+    ))}
+  </div>
+);
+
+const GaugeVisual = () => (
+  <div className="feature-visual-gauge card-hover">
+    <div className="gauge-ring">
+      <div className="gauge-ring-inner">
+        <div className="gauge-score">94%</div>
+        <div className="gauge-label-text">match score</div>
+      </div>
+    </div>
+    <div style={{ display: 'flex', justifyContent: 'center', gap: 'var(--space-5)' }}>
+      {[
+        { label: 'Skills', score: '97%' },
+        { label: 'Experience', score: '91%' },
+        { label: 'Culture', score: '88%' },
+      ].map((item) => (
+        <div key={item.label} style={{ textAlign: 'center' }}>
+          <div style={{ fontFamily: "'Playfair Display', serif", fontSize: '18px', color: 'var(--accent)' }}>{item.score}</div>
+          <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: '10px', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--text-muted)' }}>{item.label}</div>
+        </div>
+      ))}
+    </div>
+  </div>
+);
+
 const HomePage = () => {
   const { isAuthenticated } = useAuth();
-  const observerRef = useRef<IntersectionObserver | null>(null);
 
-  /* Animated counters */
-  const counter1 = useCountUp('12K+');
-  const counter2 = useCountUp('2.4M');
-  const counter3 = useCountUp('94%');
-  const counter4 = useCountUp('3.2×');
+  const c1 = useCountUp('12K+');
+  const c2 = useCountUp('2.4M');
+  const c3 = useCountUp('94%');
+  const c4 = useCountUp('3.2×');
 
+  /* visibility observer for .reveal / .reveal-stagger classes (fade-up fallback) */
+  const ioRef = useRef<IntersectionObserver | null>(null);
   useEffect(() => {
-    observerRef.current = new IntersectionObserver(
-      (entries) => entries.forEach(e => {
+    ioRef.current = new IntersectionObserver(
+      (entries) => entries.forEach((e) => {
         if (e.isIntersecting) {
           e.target.classList.add('is-visible');
-          observerRef.current?.unobserve(e.target);
+          ioRef.current?.unobserve(e.target);
         }
       }),
       { threshold: 0.12, rootMargin: '0px 0px -40px 0px' }
     );
-
-    document.querySelectorAll('.reveal, .reveal-stagger').forEach(el => observerRef.current?.observe(el));
-
-    return () => observerRef.current?.disconnect();
+    const els = document.querySelectorAll('.reveal, .reveal-stagger');
+    els.forEach((el) => ioRef.current?.observe(el));
+    return () => ioRef.current?.disconnect();
   }, []);
 
   return (
-    <div style={{ background: 'var(--bg-base)', paddingTop: '60px' }}>
+    <div style={{ background: 'var(--bg-base)', paddingTop: 0 }}>
 
-      {/* ════════════════ HERO ════════════════ */}
-      <section className="bg-grid" style={{ position: 'relative', overflow: 'hidden' }}>
-        {/* Aurora blobs */}
-        <div className="aurora-container">
-          <div className="aurora-blob aurora-blob-1" />
-          <div className="aurora-blob aurora-blob-2" />
-          <div className="aurora-blob aurora-blob-3" />
+      {/* ════════════ HERO ════════════ */}
+      <section className="hero bg-grid">
+        <div className="hero-orb-stage" aria-hidden="true">
+          <Suspense fallback={null}>
+            <MatchOrb />
+          </Suspense>
         </div>
 
-        {/* Floating decorative shapes */}
-        <div className="floating-shape floating-shape-1" />
-        <div className="floating-shape floating-shape-2" />
-        <div className="floating-shape floating-shape-3" />
+        <div style={{ position: 'relative', zIndex: 1 }}>
+          <div className="eyebrow-rule reveal" style={{ marginBottom: 'var(--space-6)' }}>
+            № 001 — Job Intelligence Monthly
+          </div>
 
-        <div className="hero">
-          {/* Left column — text */}
-          <div className="reveal" style={{ zIndex: 1 }}>
-            <div className="badge badge-pulse" style={{ marginBottom: 'var(--space-5)' }}>
-              <span style={{ position: 'relative', zIndex: 1 }}>✦ AI-Powered Job Matching</span>
-            </div>
+          <h1 className="text-display" style={{ marginBottom: 'var(--space-6)' }}>
+            <TextReveal as="span" delay={0.1} style={{ display: 'block' }}>
+              Find your next
+            </TextReveal>
+            <TextReveal as="span" delay={0.25} style={{ display: 'block' }}>
+              role, <em className="text-accent">intelligently.</em>
+            </TextReveal>
+          </h1>
 
-            <h1 className="text-display" style={{ marginBottom: 'var(--space-5)' }}>
-              Find Your Next<br />Role, <span className="text-accent-gradient">Intelligently.</span>
-            </h1>
+          <p className="text-body-lg reveal" style={{ maxWidth: 520, marginBottom: 'var(--space-7)' }}>
+            Stop wasting hours on job boards. IntelliApply matches you to roles that actually fit — based on your real skills, experience, and intent.
+          </p>
 
-            <p className="text-body-lg" style={{ maxWidth: '480px', marginBottom: 'var(--space-6)' }}>
-              Stop wasting hours on job boards. Our AI co-pilot matches you to the roles that actually fit — based on your real skills and experience.
-            </p>
+          <div className="reveal" style={{ display: 'flex', gap: 'var(--space-3)', flexWrap: 'wrap', alignItems: 'center' }}>
+            {isAuthenticated ? (
+              <MagneticButton>
+                <Link to="/dashboard" className="btn btn-primary btn-lg">Go to Dashboard <ArrowRightIcon /></Link>
+              </MagneticButton>
+            ) : (
+              <>
+                <MagneticButton>
+                  <Link to="/register" className="btn btn-primary btn-lg">Begin the search <ArrowRightIcon /></Link>
+                </MagneticButton>
+                <Link to="#process" className="btn btn-secondary btn-lg">See the method</Link>
+              </>
+            )}
+          </div>
 
-            <div style={{ display: 'flex', gap: 'var(--space-3)', flexWrap: 'wrap' }}>
-              {isAuthenticated ? (
-                <Link to="/dashboard" className="btn btn-primary btn-lg">
-                  Go to Dashboard <ArrowRightIcon />
-                </Link>
-              ) : (
-                <>
-                  <Link to="/register" className="btn btn-primary btn-lg">
-                    Get Started Free <ArrowRightIcon />
-                  </Link>
-                  <a href="#how-it-works" className="btn btn-secondary btn-lg">
-                    See how it works
-                  </a>
-                </>
-              )}
-            </div>
+          <div className="reveal" style={{ display: 'flex', gap: 'var(--space-6)', marginTop: 'var(--space-7)', paddingTop: 'var(--space-6)', borderTop: '1px solid var(--border-subtle)', maxWidth: 520 }}>
+            <div className="stat-chip">12,000+ seekers</div>
+            <div className="stat-chip" style={{ animationDelay: '-2s' }}>2.4M jobs scanned</div>
+            <div className="stat-chip" style={{ animationDelay: '-4s' }}>94% match accuracy</div>
+          </div>
+        </div>
 
-            {/* Social proof mini-row */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: 'var(--space-6)' }}>
-              <div style={{ display: 'flex' }}>
-                {['#5B4EFF', '#818CF8', '#3B82F6', '#6366F1'].map((c, i) => (
-                  <div key={i} style={{
-                    width: '28px', height: '28px', borderRadius: '50%',
-                    background: c, border: '2px solid var(--bg-base)',
-                    marginLeft: i > 0 ? '-8px' : 0, zIndex: 4 - i,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontSize: '10px', fontWeight: 700, color: 'white',
-                  }}>
-                    {['AK', 'SP', 'JR', 'ML'][i]}
-                  </div>
-                ))}
+        {/* Right column — editorial resume card */}
+        <div className="hero-visual" style={{ position: 'relative', zIndex: 1 }}>
+          <div className="card" style={{ padding: 'var(--space-7)', maxWidth: 420, marginLeft: 'auto' }}>
+            <div className="eyebrow-rule" style={{ marginBottom: 'var(--space-5)' }}>Match Score</div>
+            <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 72, lineHeight: 1, color: 'var(--accent)', marginBottom: 'var(--space-5)' }}>94</div>
+
+            <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 16 }}>
+              <div style={{
+                width: 44, height: 44, borderRadius: 'var(--radius-sm)',
+                background: 'var(--accent-soft)', border: '1px solid var(--border-accent)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+              }}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="1.5">
+                  <rect x="3" y="7" width="18" height="13" rx="2"/><path d="M16 7V5a4 4 0 00-8 0v2"/>
+                </svg>
               </div>
               <div>
-                <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)' }}>
-                  12,000+ seekers
-                </div>
-                <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-                  Finding jobs smarter
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Right column — 3D Product Preview Card */}
-          <div className="hero-visual" style={{ position: 'relative', zIndex: 1 }}>
-            <div className="card-3d-wrapper">
-              <div className="hero-preview card card-3d gradient-border" style={{ padding: 'var(--space-6)', borderRadius: 'var(--radius-xl)' }}>
-                {/* Score header */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                  <span className="text-eyebrow">Match Score</span>
-                  <span style={{ fontSize: '24px', fontWeight: 700, fontFamily: "'Sora', sans-serif" }}>
-                    <span className="text-accent-gradient">94%</span>
-                  </span>
-                </div>
-
-                {/* Company info */}
-                <div style={{ display: 'flex', gap: '12px', alignItems: 'center', marginBottom: '14px' }}>
-                  <div style={{
-                    width: '44px', height: '44px', borderRadius: 'var(--radius-md)',
-                    background: 'linear-gradient(135deg, var(--accent-soft), rgba(129, 140, 248, 0.12))',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    flexShrink: 0,
-                  }}>
-                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="1.5">
-                      <rect x="3" y="7" width="18" height="13" rx="2"/>
-                      <path d="M16 7V5a4 4 0 00-8 0v2"/>
-                    </svg>
-                  </div>
-                  <div>
-                    <div style={{ fontWeight: 600, fontSize: '16px', color: 'var(--text-primary)', fontFamily: "'Sora', sans-serif" }}>Software Engineer II</div>
-                    <div style={{ fontSize: '13px', color: 'var(--text-muted)' }}>Acme Corp · Remote · Full-time</div>
-                  </div>
-                </div>
-
-                {/* Tags */}
-                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '16px' }}>
-                  {['React', 'TypeScript', 'Node.js', 'AWS'].map(tag => (
-                    <span key={tag} className="badge">{tag}</span>
-                  ))}
-                </div>
-
-                {/* Progress bar */}
-                <div style={{ marginBottom: '4px', display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-muted)' }}>
-                  <span>Profile match</span>
-                  <span style={{ color: 'var(--accent)', fontWeight: 600 }}>94%</span>
-                </div>
-                <div style={{ background: 'var(--bg-subtle)', borderRadius: 'var(--radius-pill)', height: '6px', overflow: 'hidden' }}>
-                  <div style={{ width: '94%', height: '100%', background: 'linear-gradient(90deg, var(--accent), #818cf8, #3b82f6)', borderRadius: 'var(--radius-pill)', animation: 'progress-fill 2s var(--ease-out) forwards' }} />
-                </div>
-
-                {/* Breakdown mini-stats */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px', marginTop: '16px', paddingTop: '16px', borderTop: '1px solid var(--border-subtle)' }}>
-                  {[
-                    { label: 'Skills', score: '97%', color: 'var(--accent)' },
-                    { label: 'Experience', score: '91%', color: '#818cf8' },
-                    { label: 'Culture', score: '88%', color: '#3b82f6' },
-                  ].map(s => (
-                    <div key={s.label} style={{ textAlign: 'center' }}>
-                      <div style={{ fontSize: '18px', fontWeight: 700, color: s.color, fontFamily: "'Sora', sans-serif" }}>{s.score}</div>
-                      <div style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{s.label}</div>
-                    </div>
-                  ))}
-                </div>
+                <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 18, color: 'var(--text-primary)' }}>Software Engineer II</div>
+                <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Acme Corp · Remote · Full-time</div>
               </div>
             </div>
 
-            {/* Floating stat chips */}
-            <div className="stat-chip" style={{ position: 'absolute', top: '-16px', right: '-20px' }}>
-              <span style={{ fontSize: '14px' }}>🔍</span> 1,240 jobs scanned
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 20 }}>
+              {['React', 'TypeScript', 'Node.js', 'AWS'].map((t) => (
+                <span key={t} className="badge">{t}</span>
+              ))}
             </div>
-            <div className="stat-chip" style={{ position: 'absolute', bottom: '20px', left: '-36px', animationDelay: '-2s' }}>
-              <span style={{ fontSize: '14px' }}>⚡</span> Updated 2 min ago
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'var(--text-muted)', marginBottom: 6, fontFamily: "'IBM Plex Mono', monospace", letterSpacing: '0.10em', textTransform: 'uppercase' }}>
+              <span>Profile fit</span><span style={{ color: 'var(--accent)' }}>94%</span>
             </div>
-          </div>
-        </div>
-
-        {/* Scroll indicator */}
-        <div style={{ position: 'absolute', bottom: '32px', left: '50%', transform: 'translateX(-50%)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', opacity: 0.35, animation: 'bounce-subtle 2s ease-in-out infinite' }}>
-          <span style={{ fontSize: '10px', letterSpacing: '0.14em', textTransform: 'uppercase', fontFamily: "'Inter', sans-serif", color: 'var(--text-muted)', fontWeight: 500 }}>Scroll</span>
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 3v10M4 9l4 4 4-4" stroke="var(--text-muted)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
-        </div>
-      </section>
-
-
-      {/* ════════════════ STATS STRIP ════════════════ */}
-      <div className="stats-strip reveal">
-        {[
-          { counter: counter1, label: 'Active Job Seekers' },
-          { counter: counter2, label: 'Jobs Scanned Weekly' },
-          { counter: counter3, label: 'Match Accuracy' },
-          { counter: counter4, label: 'Faster Than Manual' },
-        ].map((item, i) => (
-          <div key={i} style={{ display: 'contents' }}>
-            {i > 0 && <div className="stat-divider" />}
-            <div className="stat-item" ref={item.counter.ref}>
-              <div className="stat-number counter-animate">{item.counter.count}</div>
-              <div className="stat-label">{item.label}</div>
+            <div style={{ background: 'var(--bg-subtle)', borderRadius: 0, height: 2, overflow: 'hidden' }}>
+              <div style={{ width: '94%', height: '100%', background: 'var(--accent)' }} />
             </div>
-          </div>
-        ))}
-      </div>
 
-
-      {/* ════════════════ FEATURES ════════════════ */}
-      <section id="features" style={{ padding: 'var(--space-10) 0', background: 'var(--bg-base)', position: 'relative' }}>
-        <div className="features-section">
-          {/* Section header */}
-          <div className="reveal" style={{ textAlign: 'center', marginBottom: '80px' }}>
-            <div className="text-eyebrow" style={{ marginBottom: '12px' }}>Features</div>
-            <h2 className="text-h1">A Better Way to Find<br />Your Next Role</h2>
-            <p className="text-body-lg" style={{ maxWidth: '520px', margin: '16px auto 0' }}>
-              Stop manually hunting. IntelliApply works while you sleep.
-            </p>
-          </div>
-
-          {/* Feature 1: Resume Parsing */}
-          <div className="feature-row reveal">
-            <div>
-              <div className="text-eyebrow" style={{ marginBottom: '10px' }}>01 — Resume Intelligence</div>
-              <h3 className="text-h2" style={{ marginBottom: '14px' }}>Your skills, extracted.<br />Your value, understood.</h3>
-              <p className="text-body" style={{ marginBottom: '24px' }}>
-                Upload your resume once. Our parser extracts skills, experience depth, and seniority level — building a living profile that matches you to the right roles, not just keyword matches.
-              </p>
-              <Link to="/register" style={{ color: 'var(--accent)', fontWeight: 500, fontSize: '14px', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                Learn more <ArrowRightIcon />
-              </Link>
-            </div>
-            <div className="feature-visual-resume card-hover gradient-border" style={{ borderRadius: 'var(--radius-xl)' }}>
-              <div style={{ marginBottom: 'var(--space-3)' }}>
-                <div className="card-icon" style={{ marginBottom: 'var(--space-3)' }}>
-                  <DocumentIcon />
-                </div>
-                <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)', fontFamily: "'Sora', sans-serif" }}>Resume Analysis</div>
-              </div>
-              <div className="field-row">
-                <span className="field-label">Name</span>
-                <span className="field-value">Alex Chen</span>
-              </div>
-              <div className="field-row">
-                <span className="field-label">Skills</span>
-                <span className="field-highlight">React</span>
-                <span className="field-highlight">TypeScript</span>
-                <span className="field-highlight">Python</span>
-              </div>
-              <div className="field-row">
-                <span className="field-label">Level</span>
-                <span className="field-value">Senior (5+ yrs)</span>
-              </div>
-              <div className="field-row">
-                <span className="field-label">Focus</span>
-                <span className="field-value">Full-Stack Engineering</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Feature 2: Job Scraping */}
-          <div className="feature-row reverse reveal">
-            <div>
-              <div className="text-eyebrow" style={{ marginBottom: '10px' }}>02 — Automated Discovery</div>
-              <h3 className="text-h2" style={{ marginBottom: '14px' }}>Jobs found for you,<br />while you focus on prep.</h3>
-              <p className="text-body" style={{ marginBottom: '24px' }}>
-                Our scraping engine continuously monitors HackerNews, WeWorkRemotely, and more. New listings are discovered, de-duplicated, and added to your feed automatically.
-              </p>
-              <Link to="/register" style={{ color: 'var(--accent)', fontWeight: 500, fontSize: '14px', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                Learn more <ArrowRightIcon />
-              </Link>
-            </div>
-            <div className="feature-visual-feed card-hover gradient-border" style={{ borderRadius: 'var(--radius-xl)' }}>
-              <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 'var(--space-3)', paddingLeft: 'var(--space-2)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#059669', animation: 'cursor-blink 2s ease infinite' }} />
-                Live Job Feed
-              </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginTop: 20, paddingTop: 20, borderTop: '1px solid var(--border-subtle)' }}>
               {[
-                { dot: '', title: 'Senior Frontend Engineer', company: 'Stripe · Remote', time: '2m ago' },
-                { dot: 'green', title: 'Full-Stack Developer', company: 'Vercel · NYC', time: '8m ago' },
-                { dot: 'amber', title: 'React Developer', company: 'Linear · Remote', time: '15m ago' },
-                { dot: '', title: 'Software Engineer II', company: 'Mercury · SF', time: '22m ago' },
-                { dot: 'green', title: 'Backend Engineer', company: 'Notion · Remote', time: '31m ago' },
-              ].map((item, i) => (
-                <div key={i} className="feed-item" style={{ animationDelay: `${i * 100}ms` }}>
-                  <div className={`feed-dot ${item.dot}`} />
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: '13px', fontWeight: 500, color: 'var(--text-primary)' }}>{item.title}</div>
-                    <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{item.company}</div>
-                  </div>
-                  <span style={{ fontSize: '11px', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>{item.time}</span>
+                { label: 'Skills', score: '97%' },
+                { label: 'Exp.', score: '91%' },
+                { label: 'Culture', score: '88%' },
+              ].map((s) => (
+                <div key={s.label} style={{ textAlign: 'center' }}>
+                  <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 20, color: 'var(--text-primary)' }}>{s.score}</div>
+                  <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--text-muted)' }}>{s.label}</div>
                 </div>
               ))}
             </div>
           </div>
 
-          {/* Feature 3: AI Matching */}
-          <div className="feature-row reveal">
-            <div>
-              <div className="text-eyebrow" style={{ marginBottom: '10px' }}>03 — AI Matching</div>
-              <h3 className="text-h2" style={{ marginBottom: '14px' }}>Not just keywords.<br />Actual fit scoring.</h3>
-              <p className="text-body" style={{ marginBottom: '24px' }}>
-                Our TF-IDF vectorization and cosine similarity engine goes beyond keyword matching. It understands context, weighs experience depth, and delivers a true compatibility score.
-              </p>
-              <Link to="/register" style={{ color: 'var(--accent)', fontWeight: 500, fontSize: '14px', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                Learn more <ArrowRightIcon />
-              </Link>
-            </div>
-            <div className="feature-visual-gauge card-hover gradient-border" style={{ borderRadius: 'var(--radius-xl)' }}>
-              <div className="gauge-ring">
-                <div className="gauge-ring-inner">
-                  <div className="gauge-score">94%</div>
-                  <div className="gauge-label-text">Match Score</div>
-                </div>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'center', gap: 'var(--space-4)', marginTop: 'var(--space-3)' }}>
-                {[
-                  { label: 'Skills', score: '97%', color: 'var(--accent)' },
-                  { label: 'Experience', score: '91%', color: '#818cf8' },
-                  { label: 'Culture', score: '88%', color: '#3b82f6' },
-                ].map((item, i) => (
-                  <div key={i} style={{ textAlign: 'center' }}>
-                    <div style={{ fontSize: '16px', fontWeight: 600, color: item.color, fontFamily: "'Sora', sans-serif" }}>{item.score}</div>
-                    <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{item.label}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
+          <div className="stat-chip" style={{ position: 'absolute', top: -14, right: 20 }}>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.3-4.3"/></svg>
+            1,240 jobs scanned
+          </div>
+          <div className="stat-chip" style={{ position: 'absolute', bottom: 32, left: -20, animationDelay: '-3s' }}>
+            Updated 2 min ago
+          </div>
+        </div>
+
+        {/* Scroll indicator */}
+        <div style={{ position: 'absolute', bottom: 36, left: '50%', transform: 'translateX(-50%)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
+          <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 10, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--text-muted)' }}>Scroll</span>
+          <div className="scroll-line" />
+        </div>
+      </section>
+
+      {/* ════════════ MANIFESTO / NUMBERS ════════════ */}
+      <section>
+        <div style={{ maxWidth: 1320, margin: '0 auto', padding: 'var(--space-10) max(5vw, 32px) var(--space-8)' }}>
+          <div className="eyebrow-rule reveal" style={{ marginBottom: 'var(--space-7)' }}>№ 002 — By the numbers</div>
+          <TextReveal as="h2" className="text-h1" style={{ maxWidth: 720, marginBottom: 'var(--space-7)' }}>
+            The market moves quietly. <em className="text-accent">We make it loud.</em>
+          </TextReveal>
+        </div>
+
+        <div className="stats-strip reveal-stagger">
+          <div className="stat-item" ref={c1.ref}>
+            <div className="stat-number">{c1.count}</div>
+            <div className="stat-label">Active job seekers</div>
+          </div>
+          <div className="stat-item" ref={c2.ref}>
+            <div className="stat-number">{c2.count}</div>
+            <div className="stat-label">Jobs scanned weekly</div>
+          </div>
+          <div className="stat-item" ref={c3.ref}>
+            <div className="stat-number">{c3.count}</div>
+            <div className="stat-label">Match accuracy</div>
+          </div>
+          <div className="stat-item" ref={c4.ref}>
+            <div className="stat-number">{c4.count}</div>
+            <div className="stat-label">Faster than manual</div>
           </div>
         </div>
       </section>
 
-
-      {/* ════════════════ HOW IT WORKS ════════════════ */}
-      <section id="how-it-works" className="how-section">
-        <div className="reveal" style={{ textAlign: 'center' }}>
-          <div className="text-eyebrow" style={{ marginBottom: '12px' }}>How It Works</div>
-          <h2 className="text-h1">Three Simple Steps to<br />Your Next Role</h2>
+      {/* ════════════ PROCESS ════════════ */}
+      <section id="process" className="features-section">
+        <div style={{ marginBottom: 'var(--space-9)' }}>
+          <div className="eyebrow-rule reveal" style={{ marginBottom: 'var(--space-6)' }}>№ 003 — The Method</div>
+          <TextReveal as="h2" className="text-h1">Three moves to your <em className="text-accent">next role.</em></TextReveal>
         </div>
 
-        <div className="steps-row reveal-stagger">
-          {[
-            { step: '1', icon: <DocumentIcon />, title: 'Upload Your Resume', desc: 'Drop your PDF or paste your text. We parse it in seconds and build your profile automatically.' },
-            { step: '2', icon: <SearchIcon />, title: 'Set Your Preferences', desc: 'Choose roles, locations, salary range, and remote preferences. Tell us what you\'re looking for.' },
-            { step: '3', icon: <SparklesIcon />, title: 'Get Matched Daily', desc: 'Wake up to a curated shortlist of jobs ranked by fit score. Apply with confidence.' },
-          ].map((item) => (
-            <div key={item.step} className="step-card reveal card-hover" style={{ background: 'var(--bg-surface)', borderRadius: 'var(--radius-xl)', border: '1px solid var(--border-subtle)', padding: 'var(--space-6)' }}>
-              <div className="step-number">{item.step}</div>
-              <div style={{ color: 'var(--accent)', marginBottom: 'var(--space-3)', display: 'flex', justifyContent: 'center' }}>
-                {item.icon}
+        <div>
+          {PROCESS_ROWS.map((row, i) => (
+            <div key={row.index} className="feature-row reveal-stagger">
+              <div className="feature-index">{row.index}</div>
+              <div>
+                <div className="text-eyebrow" style={{ marginBottom: 10 }}>{row.eyebrow}</div>
+                <TextReveal as="h3" className="text-h2" style={{ marginBottom: 16 }} scrub>
+                  {row.titleLine1}<br /><em>{row.titleLine2}</em>
+                </TextReveal>
+                <p className="text-body" style={{ maxWidth: 560, marginBottom: 20 }}>
+                  {row.body}
+                </p>
+                <Link to={row.link.to} style={{
+                  color: 'var(--accent)',
+                  fontWeight: 500,
+                  fontSize: 14,
+                  textDecoration: 'none',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  borderBottom: '1px solid var(--accent)',
+                  paddingBottom: 2,
+                }}>
+                  {row.link.label} <ArrowRightIcon />
+                </Link>
               </div>
-              <h3 className="text-h3" style={{ marginBottom: 'var(--space-3)' }}>{item.title}</h3>
-              <p className="text-body">{item.desc}</p>
+              <ParallaxImage yPercent={6}>
+                {i === 0 && <ResumeVisual />}
+                {i === 1 && <FeedVisual />}
+                {i === 2 && <GaugeVisual />}
+              </ParallaxImage>
             </div>
           ))}
         </div>
       </section>
 
+      {/* ════════════ HOW IT WORKS (number cards) ════════════ */}
+      <section className="how-section">
+        <div style={{ maxWidth: 1320, margin: '0 auto' }}>
+          <div className="eyebrow-rule reveal" style={{ marginBottom: 'var(--space-6)' }}>№ 004 — Three steps</div>
+          <h2 className="text-h1 reveal" style={{ marginBottom: 'var(--space-8)' }}>From resume to <em className="text-accent">results.</em></h2>
 
-      {/* ════════════════ CTA ════════════════ */}
-      <section className="reveal" style={{ background: 'var(--bg-base)', padding: 'var(--space-10) var(--space-5)', position: 'relative', overflow: 'hidden' }}>
-        {/* Background accent blob */}
-        <div style={{ position: 'absolute', width: '300px', height: '300px', borderRadius: '50%', background: 'radial-gradient(circle, rgba(91, 78, 255, 0.08), transparent 70%)', top: '-50px', left: '50%', transform: 'translateX(-50%)', filter: 'blur(40px)', pointerEvents: 'none' }} />
-
-        <div style={{ maxWidth: '600px', margin: '0 auto', textAlign: 'center', position: 'relative', zIndex: 1 }}>
-          <div className="badge badge-pulse" style={{ marginBottom: 'var(--space-4)', display: 'inline-flex' }}>
-            <span style={{ position: 'relative', zIndex: 1 }}>✦ Free to get started</span>
+          <div className="steps-row reveal-stagger">
+            {[
+              { n: '01', Icon: DocumentIcon, title: 'Upload Your Resume', desc: 'Drop your PDF or paste text. We parse it and build your living profile in seconds.' },
+              { n: '02', Icon: SearchIcon, title: 'Set Your Preferences', desc: 'Choose roles, locations, salary range, remote intent. Tell us what you want.' },
+              { n: '03', Icon: SparklesIcon, title: 'Get Matched Daily', desc: 'Wake to a curated shortlist ranked by fit. Apply with confidence, not noise.' },
+            ].map((item) => (
+              <div key={item.n} className="step-card">
+                <div className="step-number">{item.n}</div>
+                <div style={{ color: 'var(--accent)', marginBottom: 'var(--space-4)' }}>
+                  <item.Icon />
+                </div>
+                <h3 className="text-h3" style={{ fontFamily: "'Playfair Display', serif", marginBottom: 'var(--space-3)' }}>{item.title}</h3>
+                <p className="text-body">{item.desc}</p>
+              </div>
+            ))}
           </div>
-          <h2 className="text-h1" style={{ marginBottom: 'var(--space-4)' }}>
-            Ready to Streamline<br />Your Job Search?
-          </h2>
-          <p className="text-body-lg" style={{ marginBottom: 'var(--space-6)' }}>
-            Join thousands of job seekers who have already found their perfect match with IntelliApply.
-          </p>
-          <Link to="/register" className="btn btn-primary btn-lg">
-            Get Started for Free <ArrowRightIcon />
-          </Link>
+        </div>
+      </section>
+
+      {/* ════════════ CTA FINALE ════════════ */}
+      <section style={{ background: 'var(--bg-base)', padding: 'var(--space-11) max(5vw, 32px)', borderTop: '1px solid var(--border-default)' }}>
+        <div style={{ maxWidth: 1320, margin: '0 auto' }}>
+          <div className="eyebrow-rule reveal" style={{ marginBottom: 'var(--space-7)' }}>№ 005 — Begin</div>
+          <TextReveal as="h2" className="serif-display" style={{ maxWidth: 900, marginBottom: 'var(--space-7)', fontSize: 'clamp(48px, 7vw, 96px)', lineHeight: 1 }}>
+            Let's find your <em className="text-accent">next role.</em>
+          </TextReveal>
+          <div className="reveal" style={{ display: 'flex', gap: 'var(--space-4)', flexWrap: 'wrap', marginBottom: 'var(--space-9)' }}>
+            <MagneticButton>
+              <Link to="/register" className="btn btn-primary btn-lg" style={{ padding: '16px 36px', fontSize: 15 }}>
+                {isAuthenticated ? 'Go to Dashboard' : 'Create your profile'} <ArrowRightIcon />
+              </Link>
+            </MagneticButton>
+            {!isAuthenticated && (
+              <Link to="/login" className="btn btn-secondary btn-lg" style={{ padding: '16px 36px', fontSize: 15 }}>
+                Sign in
+              </Link>
+            )}
+          </div>
+
+          {/* Marquee strip */}
+          <div className="marquee-row" aria-hidden="true">
+            <div className="marquee-track">
+              {Array.from({ length: 2 }).flatMap((_, dup) =>
+                ['HIRED AT STRIPE', 'MATCH SCORE 98', 'FOUND IN 3 WEEKS', '12,400 SEEKERS', 'PARSED WITH PRECISION', 'REMOTE FIRST'].map((t) => (
+                  <span key={`${dup}-${t}`} className="marquee-item">{t}</span>
+                ))
+              )}
+            </div>
+          </div>
         </div>
       </section>
     </div>

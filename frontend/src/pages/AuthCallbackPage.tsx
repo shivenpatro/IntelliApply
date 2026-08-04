@@ -69,7 +69,7 @@ const AuthCallbackPage = () => {
       }}
     >
       <div className="spinner" />
-      <p style={{ fontSize: '16px', margin: 0, fontFamily: "'Sora', sans-serif", fontWeight: 500, color: 'var(--text-primary)' }}>
+      <p style={{ fontSize: 16, margin: 0, fontFamily: "'Playfair Display', serif", fontWeight: 500, color: 'var(--text-primary)' }}>
         Completing sign-in…
       </p>
     </div>

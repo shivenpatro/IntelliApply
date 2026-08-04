@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 // Layout components
 import Navbar from './components/common/Navbar';
 import Footer from './components/common/Footer';
+import { useLenisScroll } from './hooks/useLenisScroll';
 
 // Page components
 import HomePage from './pages/HomePage';
@@ -35,6 +36,7 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 
 function AppContent() {
   const { isAuthenticated } = useAuth();
+  useLenisScroll();
 
   return (
     <div className="flex flex-col min-h-screen">

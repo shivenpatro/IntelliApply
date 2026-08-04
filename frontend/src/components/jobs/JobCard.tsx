@@ -42,9 +42,9 @@ const JobCard: React.FC<JobCardProps> = ({ job, onOpenDetails, onStatusChange })
 
   return (
     <div
-      className="card card-hover gradient-border"
+      className="card card-hover"
       style={{
-        borderLeft: `3px solid ${currentStatus.borderColor}`,
+        borderLeft: `2px solid ${currentStatus.borderColor}`,
         padding: 'var(--space-5)',
         cursor: 'default',
       }}
@@ -55,8 +55,8 @@ const JobCard: React.FC<JobCardProps> = ({ job, onOpenDetails, onStatusChange })
           <h3
             style={{
               fontSize: '16px',
-              fontWeight: 600,
-              fontFamily: "'Sora', sans-serif",
+              fontWeight: 500,
+              fontFamily: "'Playfair Display', serif",
               color: 'var(--text-primary)',
               cursor: 'pointer',
               lineHeight: 1.3,

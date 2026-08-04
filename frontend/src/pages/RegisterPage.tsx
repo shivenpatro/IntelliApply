@@ -3,6 +3,12 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useLoadingState } from '../hooks/useLoadingState';
 
+const IntelliApplyLogo = () => (
+  <svg width="22" height="22" viewBox="0 0 40 40" fill="none" aria-hidden="true">
+    <path d="M20 0L25.3301 14.6699L40 20L25.3301 25.3301L20 40L14.6699 25.3301L0 20L14.6699 14.6699L20 0Z" fill="currentColor"/>
+  </svg>
+);
+
 const RegisterPage = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -13,60 +19,36 @@ const RegisterPage = () => {
   const [loading, setLoading, resetLoading] = useLoadingState(false, 15000);
   const navigate = useNavigate();
 
-  useEffect(() => {
-    return () => resetLoading();
-  }, [resetLoading]);
+  useEffect(() => () => resetLoading(), [resetLoading]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setRegisterError(null);
     setRegistrationSuccess(false);
 
-    if (password !== confirmPassword) {
-      setRegisterError('Passwords do not match.');
-      return;
-    }
-    if (password.length < 8) {
-      setRegisterError('Password must be at least 8 characters long.');
-      return;
-    }
+    if (password !== confirmPassword) { setRegisterError('Passwords do not match.'); return; }
+    if (password.length < 8) { setRegisterError('Password must be at least 8 characters long.'); return; }
 
     setLoading(true);
-
     try {
       const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Registration timed out')), 10000));
       await Promise.race([register(email, password), timeoutPromise]);
-
       setRegistrationSuccess(true);
       navigate('/dashboard');
     } catch (err: any) {
-      if (err.message?.includes('timed out')) {
-        setRegisterError('Registration timed out. Please try again later.');
-      } else if (err.message?.includes('already registered') || err.message?.includes('already exists')) {
-        setRegisterError('This email is already registered. Please try logging in.');
-      } else {
-        setRegisterError(err.message || authContextError || 'Failed to register. Please try again.');
-      }
-    } finally {
-      setLoading(false);
-    }
+      if (err.message?.includes('timed out')) setRegisterError('Registration timed out. Please try again later.');
+      else if (err.message?.includes('already registered') || err.message?.includes('already exists')) setRegisterError('This email is already registered. Please try logging in.');
+      else setRegisterError(err.message || authContextError || 'Failed to register. Please try again.');
+    } finally { setLoading(false); }
   };
 
-  const handleClearErrors = () => {
-    setRegisterError(null);
-    clearError();
-  };
+  const handleClearErrors = () => { setRegisterError(null); clearError(); };
 
   const handleGoogleRegister = async () => {
     setRegisterError(null);
-    try {
-      await loginWithGoogle();
-    } catch (err: any) {
-      setRegisterError(err.message || 'Failed to register with Google');
-    }
+    try { await loginWithGoogle(); } catch (err: any) { setRegisterError(err.message || 'Failed to register with Google'); }
   };
 
-  /* Password strength calculation */
   const passwordStrength = useMemo(() => {
     if (!password) return { score: 0, label: '', color: 'transparent' };
     let score = 0;
@@ -75,13 +57,12 @@ const RegisterPage = () => {
     if (/[A-Z]/.test(password)) score++;
     if (/[0-9]/.test(password)) score++;
     if (/[^A-Za-z0-9]/.test(password)) score++;
-
     const levels = [
-      { label: 'Very Weak', color: '#DC2626' },
-      { label: 'Weak', color: '#F59E0B' },
-      { label: 'Fair', color: '#D97706' },
-      { label: 'Good', color: '#059669' },
-      { label: 'Strong', color: '#059669' },
+      { label: 'Very Weak', color: '#A43D2F' },
+      { label: 'Weak', color: '#B5623D' },
+      { label: 'Fair', color: '#A86B18' },
+      { label: 'Good', color: '#2E8B5F' },
+      { label: 'Strong', color: '#1B5E42' },
     ];
     const level = levels[Math.min(score, levels.length) - 1] || levels[0];
     return { score, label: level.label, color: level.color };
@@ -89,57 +70,59 @@ const RegisterPage = () => {
 
   return (
     <div className="auth-page">
-      {/* Left: Brand Panel */}
+      {/* Left: Editorial brand panel */}
       <div className="auth-brand-panel">
-        <div className="auth-brand-logo">
-          <svg width="24" height="24" viewBox="0 0 40 40" fill="none">
-            <path d="M20 0L25.3301 14.6699L40 20L25.3301 25.3301L20 40L14.6699 25.3301L0 20L14.6699 14.6699L20 0Z" fill="white"/>
-          </svg>
-          IntelliApply
-        </div>
+        <Link to="/" className="auth-brand-logo" style={{ color: 'var(--text-primary)', textDecoration: 'none' }}>
+          <span style={{ color: 'var(--accent)' }}><IntelliApplyLogo /></span>
+          <span>IntelliApply</span>
+        </Link>
 
         <div>
-          <h2 className="auth-brand-headline">Start your<br />smarter job search.</h2>
+          <div className="eyebrow-rule" style={{ marginBottom: 'var(--space-6)' }}>№ AUTH / 002</div>
+          <h2 className="auth-brand-headline">
+            Start your<br />
+            <em>smarter job search.</em>
+          </h2>
           <p className="auth-brand-sub">
-            Join thousands of candidates who use AI-powered matching to find roles that truly fit their skills and career goals.
+            Join thousands of candidates who use AI-powered matching to find roles that truly fit.
           </p>
         </div>
 
         <div className="auth-testimonial">
           <p className="auth-testimonial-text">
-            "The match scoring is uncanny — it found roles I would have never discovered on my own. Saved me weeks of searching."
+            "The match scoring is uncanny — it found roles I would have never discovered. Saved me weeks of searching."
           </p>
           <div className="auth-testimonial-author">
             <div className="auth-testimonial-avatar">SP</div>
             <div>
-              <div style={{ fontSize: '13px', fontWeight: 500, color: 'rgba(255,255,255,0.85)' }}>Sarah P.</div>
-              <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.4)' }}>Product Designer, now at Figma</div>
+              <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-primary)' }}>Sarah P.</div>
+              <div style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: "'IBM Plex Mono', monospace", letterSpacing: '0.06em', textTransform: 'uppercase' }}>Product Designer</div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Right: Form Panel */}
+      {/* Right: Form panel */}
       <div className="auth-form-panel">
         <div className="auth-form-wrapper">
           <h2 className="auth-form-title">Create your account</h2>
           <p className="auth-form-subtitle">
-            Already have an account?{' '}
+            Already have one?{' '}
             <Link to="/login" style={{ color: 'var(--accent)', fontWeight: 500, textDecoration: 'none' }}>
               Sign in
             </Link>
           </p>
 
           {(registerError || authContextError) && !registrationSuccess && (
-            <div className="alert alert-error" role="alert" style={{ marginBottom: '18px' }}>
+            <div className="alert alert-error" role="alert" style={{ marginBottom: 18 }}>
               {registerError || authContextError}
             </div>
           )}
 
           {registrationSuccess && (
-            <div className="alert alert-success" role="alert" style={{ marginBottom: '18px' }}>
-              <strong>Registration successful!</strong>
-              <p style={{ marginTop: '4px', fontSize: '13px' }}>Redirecting to your dashboard...</p>
+            <div className="alert alert-success" role="alert" style={{ marginBottom: 18 }}>
+              <strong>Registration successful.</strong>
+              <p style={{ marginTop: 4, fontSize: 13 }}>Redirecting to your dashboard…</p>
             </div>
           )}
 
@@ -165,19 +148,18 @@ const RegisterPage = () => {
                   value={password}
                   onChange={(e) => { setPassword(e.target.value); handleClearErrors(); }}
                 />
-                {/* Password strength meter */}
                 {password && (
-                  <div style={{ marginTop: '8px' }}>
-                    <div style={{ display: 'flex', gap: '4px', marginBottom: '4px' }}>
-                      {[1, 2, 3, 4, 5].map(i => (
+                  <div style={{ marginTop: 8 }}>
+                    <div style={{ display: 'flex', gap: 4, marginBottom: 4 }}>
+                      {[1, 2, 3, 4, 5].map((i) => (
                         <div key={i} style={{
-                          flex: 1, height: '3px', borderRadius: '2px',
+                          flex: 1, height: 2,
                           background: i <= passwordStrength.score ? passwordStrength.color : 'var(--bg-subtle)',
                           transition: 'background-color 0.3s ease',
                         }} />
                       ))}
                     </div>
-                    <span style={{ fontSize: '11px', color: passwordStrength.color, fontWeight: 500, transition: 'color 0.3s ease' }}>
+                    <span style={{ fontSize: 11, color: passwordStrength.color, fontWeight: 500, fontFamily: "'IBM Plex Mono', monospace", letterSpacing: '0.08em' }}>
                       {passwordStrength.label}
                     </span>
                   </div>
@@ -195,24 +177,19 @@ const RegisterPage = () => {
                 />
               </div>
 
-              <button type="submit" disabled={loading} className="btn btn-primary" style={{ width: '100%', justifyContent: 'center' }}>
+              <button type="submit" disabled={loading} className="btn btn-primary" style={{ width: '100%', justifyContent: 'center', padding: '12px 20px' }}>
                 {loading ? (
                   <>
                     <span className="spinner spinner-sm" style={{ borderTopColor: 'var(--text-on-accent)' }} />
-                    Creating Account...
+                    Creating account…
                   </>
-                ) : 'Create Account'}
+                ) : 'Create account'}
               </button>
 
               <div className="form-divider">or continue with</div>
 
-              <button
-                type="button"
-                onClick={handleGoogleRegister}
-                disabled={loading}
-                className="btn btn-google"
-              >
-                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+              <button type="button" onClick={handleGoogleRegister} disabled={loading} className="btn btn-google">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                   <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
                   <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
                   <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05" />

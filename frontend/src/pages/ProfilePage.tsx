@@ -219,14 +219,14 @@ const ProfilePage = () => {
     return (
       <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-base)', padding: '16px' }}>
         <div className="spinner" />
-        <p style={{ marginTop: '16px', fontSize: '18px', fontFamily: "'Sora', sans-serif", fontWeight: 500, color: 'var(--text-primary)' }}>Loading Profile...</p>
+        <p style={{ marginTop: '16px', fontSize: '18px', fontFamily: "'Playfair Display', serif", fontWeight: 500, color: 'var(--text-primary)' }}>Loading profile</p>
       </div>
     );
   }
   if (error && !profile) {
     return (
       <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-base)', padding: '16px' }}>
-        <p style={{ fontSize: '18px', color: 'var(--status-interested-text)', fontFamily: "'Sora', sans-serif", fontWeight: 500 }}>{error}</p>
+        <p style={{ fontSize: '18px', color: 'var(--status-interested-text)', fontFamily: "'Playfair Display', serif", fontWeight: 500 }}>{error}</p>
         <Link to="/login" className="btn btn-secondary" style={{ marginTop: '16px' }}>Go to Login</Link>
       </div>
     );
@@ -234,7 +234,7 @@ const ProfilePage = () => {
   if (!profile) {
      return (
       <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-base)', padding: '16px' }}>
-        <p style={{ fontSize: '18px', fontFamily: "'Sora', sans-serif", fontWeight: 500, color: 'var(--text-primary)' }}>Profile data not available.</p>
+        <p style={{ fontSize: '18px', fontFamily: "'Playfair Display', serif", fontWeight: 500, color: 'var(--text-primary)' }}>Profile data not available.</p>
         <Link to="/login" className="btn btn-secondary" style={{ marginTop: '16px' }}>Go to Login</Link>
       </div>
     );
@@ -245,7 +245,7 @@ const ProfilePage = () => {
       {/* Header */}
       <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-7)', gap: 'var(--space-4)' }}>
         <div>
-          <h1 className="text-h1">Your <span className="text-accent-gradient">Profile</span></h1>
+          <h1 className="text-h1">Your <span className="text-accent">Profile</span></h1>
           <p className="text-body" style={{ marginTop: '4px' }}>Manage your account, resume, and job preferences.</p>
         </div>
         <button onClick={handleFindJobs} className="btn btn-primary">Find Matching Jobs</button>
