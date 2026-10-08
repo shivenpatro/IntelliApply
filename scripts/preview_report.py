@@ -87,7 +87,13 @@ def publish_check(result, browser=False):
 
 if __name__ == "__main__":
     browser = "--browser" in sys.argv
-    result = json.loads(Path("preview-browser-report.json").read_text()) if browser else report()
+    if browser:
+        path = Path("preview-browser-report.json")
+        result = json.loads(path.read_text()) if path.exists() else {
+            "status": "not_run", "reason": "Earlier CI steps failed or skipped the preview checks."
+        }
+    else:
+        result = report()
     if not browser:
         Path("preview-report.json").write_text(json.dumps(result, indent=2) + "\n")
     print(json.dumps(result))

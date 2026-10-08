@@ -22,7 +22,7 @@ export async function waitForTask(fetchStatus: (signal: AbortSignal) => Promise<
     }
     throw new DOMException('Cancelled', 'AbortError');
   } catch (error) {
-    if (timedOut) throw new Error('Processing is taking too long. Please check again or retry.');
+    if (timedOut) throw new Error('Processing is taking too long. Please check again or retry.', { cause: error });
     if (signal.aborted) throw new DOMException('Cancelled', 'AbortError');
     throw error;
   } finally {
