@@ -28,12 +28,12 @@ export const useLineMaskReveal = <T extends HTMLElement>(opts?: {
   yPercent?: number;
 }) => {
   const ref = useRef<T>(null);
+  const { delay = 0, scrub = false, yPercent = 110 } = opts ?? {};
 
   useLayoutEffect(() => {
     const el = ref.current;
     if (!el || prefersReduced()) return;
 
-    const o = opts ?? {};
     const split = new SplitType(el, {
       types: 'lines',
       lineClass: 'line',
@@ -52,10 +52,10 @@ export const useLineMaskReveal = <T extends HTMLElement>(opts?: {
 
     const inners = el.querySelectorAll('.line-inner');
 
-    if (o.scrub) {
+    if (scrub) {
       gsap.fromTo(
         inners,
-        { yPercent: o.yPercent ?? 110 },
+        { yPercent: yPercent },
         {
           yPercent: 0,
           ease: 'power3.out',
@@ -71,13 +71,13 @@ export const useLineMaskReveal = <T extends HTMLElement>(opts?: {
     } else {
       gsap.fromTo(
         inners,
-        { yPercent: o.yPercent ?? 110 },
+        { yPercent: yPercent },
         {
           yPercent: 0,
           duration: 1.1,
           ease: 'power3.out',
           stagger: 0.08,
-          delay: o.delay ?? 0,
+          delay: delay,
           scrollTrigger: { trigger: el, start: 'top 88%' },
         }
       );
@@ -86,7 +86,7 @@ export const useLineMaskReveal = <T extends HTMLElement>(opts?: {
     return () => {
       split.revert();
     };
-  }, [opts?.delay, opts?.scrub, opts?.yPercent]);
+  }, [delay, scrub, yPercent]);
 
   return ref;
 };
@@ -101,6 +101,7 @@ export const useScrollFade = <T extends HTMLElement>(opts?: {
   scrub?: boolean;
 }) => {
   const ref = useRef<T>(null);
+  const { y = 40, x = 0, duration = 1, delay = 0, start, scrub = false } = opts ?? {};
 
   useLayoutEffect(() => {
     const el = ref.current;
@@ -110,19 +111,19 @@ export const useScrollFade = <T extends HTMLElement>(opts?: {
       el,
       {
         opacity: 0,
-        y: opts?.y ?? 40,
-        x: opts?.x ?? 0,
+        y: y,
+        x: x,
       },
       {
         opacity: 1,
         y: 0,
         x: 0,
-        duration: opts?.duration ?? 1,
-        delay: opts?.delay ?? 0,
+        duration: duration,
+        delay: delay,
         ease: 'power3.out',
-        scrollTrigger: opts?.scrub
-          ? { trigger: el, start: opts?.start ?? 'top 90%', end: 'top 40%', scrub: 1 }
-          : { trigger: el, start: opts?.start ?? 'top 88%' },
+        scrollTrigger: scrub
+          ? { trigger: el, start: start ?? 'top 90%', end: 'top 40%', scrub: 1 }
+          : { trigger: el, start: start ?? 'top 88%' },
       }
     );
 
@@ -130,7 +131,7 @@ export const useScrollFade = <T extends HTMLElement>(opts?: {
       tween.scrollTrigger?.kill();
       tween.kill();
     };
-  }, []);
+  }, [y, x, duration, delay, start, scrub]);
 
   return ref;
 };

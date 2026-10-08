@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
+import { Dialog, DialogPanel, DialogTitle } from '@headlessui/react';
 
 /* ── Icons ── */
 const XMarkIcon = () => <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>;
@@ -8,6 +9,7 @@ const CalendarDaysIcon = () => <svg xmlns="http://www.w3.org/2000/svg" viewBox="
 const LinkIcon = () => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" style={{ width: '16px', height: '16px', marginRight: '6px', opacity: 0.6 }}><path d="M12.232 4.232a2.5 2.5 0 013.536 3.536l-1.225 1.224a.75.75 0 001.061 1.06l1.224-1.224a4 4 0 00-5.656-5.656l-3 3a4 4 0 00.225 5.865.75.75 0 00.977-1.138 2.5 2.5 0 01-.142-3.667l3-3z" /><path d="M11.603 7.963a.75.75 0 00-.977 1.138 2.5 2.5 0 01.142 3.667l-3 3a2.5 2.5 0 01-3.536-3.536l1.225-1.224a.75.75 0 00-1.061-1.06l-1.224 1.224a4 4 0 005.656 5.656l3-3a4 4 0 00-.225-5.865z" /></svg>;
 
 interface Job {
+  is_current?: boolean;
   id: number;
   title: string;
   company: string;
@@ -25,27 +27,15 @@ interface Job {
 interface JobDetailsModalProps {
   job: Job;
   onClose: () => void;
-  onStatusChange: (jobId: number, newStatus: string) => void;
+  onStatusChange: (jobId: number, newStatus: string) => void | Promise<void>;
 }
 
 const JobDetailsModal: React.FC<JobDetailsModalProps> = ({ job, onClose, onStatusChange }) => {
   const [isUpdating, setIsUpdating] = useState(false);
   const [status, setStatus] = useState(job.status || 'pending');
-  const [isVisible, setIsVisible] = useState(false);
-  
-  useEffect(() => {
-    setIsVisible(true);
-    document.body.style.overflow = 'hidden';
-    return () => {
-      document.body.style.overflow = 'unset';
-    };
-  }, []);
+  const isVisible = true;
+  const handleClose = () => onClose();
 
-  const handleClose = () => {
-    setIsVisible(false);
-    setTimeout(onClose, 300);
-  };
-  
   const formatDate = (dateString?: string) => {
     if (!dateString) return 'Not available';
     try {
@@ -59,8 +49,7 @@ const JobDetailsModal: React.FC<JobDetailsModalProps> = ({ job, onClose, onStatu
       if (diffDays <= 2 && date.toDateString() === yesterday.toDateString()) return 'Yesterday';
       if (diffDays <= 7) return `${diffDays} days ago`;
       return date.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
-    } catch (error) {
-      console.warn("Failed to parse date string for modal:", dateString, error);
+    } catch {
       return dateString;
     }
   };
@@ -68,8 +57,10 @@ const JobDetailsModal: React.FC<JobDetailsModalProps> = ({ job, onClose, onStatu
   const handleStatusChangeInternal = async (newStatus: string) => {
     setIsUpdating(true);
     try {
-      setStatus(newStatus as any);
+      setStatus(newStatus as NonNullable<Job['status']>);
       await onStatusChange(job.id, newStatus);
+    } catch {
+      setStatus(job.status || 'pending');
     } finally {
       setIsUpdating(false);
     }
@@ -94,13 +85,13 @@ const JobDetailsModal: React.FC<JobDetailsModalProps> = ({ job, onClose, onStatu
   const currentSelectStyle = statusSelectStyles[status] || statusSelectStyles.pending;
 
   return (
-    <div 
+    <Dialog open onClose={handleClose}
       style={{
         position: 'fixed', inset: 0, zIndex: 100,
         overflowY: 'auto', display: 'flex', alignItems: 'center',
         justifyContent: 'center', padding: '16px',
       }}
-      aria-labelledby="modal-title" role="dialog" aria-modal="true"
+
     >
       {/* Backdrop */}
       <div 
@@ -117,7 +108,7 @@ const JobDetailsModal: React.FC<JobDetailsModalProps> = ({ job, onClose, onStatu
       />
 
       {/* Modal Panel */}
-      <div 
+      <DialogPanel
         style={{
           position: 'relative',
           background: 'var(--bg-surface)',
@@ -142,13 +133,13 @@ const JobDetailsModal: React.FC<JobDetailsModalProps> = ({ job, onClose, onStatu
           padding: 'var(--space-5) var(--space-6)',
           borderBottom: '1px solid var(--border-subtle)',
         }}>
-          <h3 style={{
+          <DialogTitle style={{
             fontFamily: "'Playfair Display', serif", fontSize: '24px',
             fontWeight: 500, color: 'var(--text-primary)',
             letterSpacing: '-0.015em',
           }} id="modal-title">
             {job.title}
-          </h3>
+          </DialogTitle>
           <button
             type="button"
             onClick={handleClose}
@@ -167,12 +158,10 @@ const JobDetailsModal: React.FC<JobDetailsModalProps> = ({ job, onClose, onStatu
         </div>
 
         {/* Content */}
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'row', overflowY: 'hidden' }}>
+        <div className="job-modal-content">
           {/* Left Sidebar */}
-          <div style={{
-            width: '280px', flexShrink: 0,
+          <div className="job-modal-sidebar" style={{
             padding: 'var(--space-6)',
-            borderRight: '1px solid var(--border-subtle)',
             overflowY: 'auto',
             display: 'flex', flexDirection: 'column', gap: 'var(--space-5)',
           }}>
@@ -185,7 +174,7 @@ const JobDetailsModal: React.FC<JobDetailsModalProps> = ({ job, onClose, onStatu
               <p style={{ fontSize: '14px', color: 'var(--text-primary)', display: 'flex', alignItems: 'center' }}><MapPinIcon /> {job.location}</p>
             </div>
             
-            {job.relevance_score !== undefined && (
+            {job.is_current !== false && job.relevance_score !== undefined && (
               <div>
                 <span style={{ fontSize: '12px', fontWeight: 500, color: 'var(--text-muted)', marginBottom: '6px', display: 'block' }}>Match Score</span>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -277,8 +266,8 @@ const JobDetailsModal: React.FC<JobDetailsModalProps> = ({ job, onClose, onStatu
           </div>
 
           {/* Right: Description */}
-          <div style={{
-            flex: 1, padding: 'var(--space-6)',
+          <div className="job-modal-description" style={{
+            padding: 'var(--space-6)',
             overflowY: 'auto',
           }}>
             <h4 style={{
@@ -296,8 +285,8 @@ const JobDetailsModal: React.FC<JobDetailsModalProps> = ({ job, onClose, onStatu
             </div>
           </div>
         </div>
-      </div>
-    </div>
+      </DialogPanel>
+    </Dialog>
   );
 };
 

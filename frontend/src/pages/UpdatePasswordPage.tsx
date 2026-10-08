@@ -1,10 +1,9 @@
-import { useState, useEffect, useMemo } from 'react';
+import { errorMessage } from '../lib/errors';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useLoadingState } from '../hooks/useLoadingState';
 
-const NEON_AUTH_URL =
-  import.meta.env.VITE_NEON_AUTH_URL ||
-  'https://ep-green-glade-ajuf7urf.neonauth.c-3.us-east-2.aws.neon.tech/neondb/auth';
+import { resetPassword } from '../lib/neon';
 
 const IntelliApplyLogo = () => (
   <svg width="22" height="22" viewBox="0 0 40 40" fill="none" aria-hidden="true">
@@ -16,18 +15,12 @@ const UpdatePasswordPage = () => {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [message, setMessage] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading, resetLoading] = useLoadingState(false, 15000);
-  const [resetToken, setResetToken] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(() => new URLSearchParams(window.location.search).get('token') ? null : 'Invalid or expired password reset link. Please request a new one.');
+  const [loading, setLoading] = useLoadingState(false);
+  const resetToken = new URLSearchParams(window.location.search).get('token');
   const navigate = useNavigate();
-
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const token = params.get('token');
-    if (token) setResetToken(token);
-    else setError('Invalid or expired password reset link. Please request a new one.');
-    return () => resetLoading();
-  }, [resetLoading]);
+  const redirectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => { if (redirectTimer.current) clearTimeout(redirectTimer.current); }, []);
 
   const passwordStrength = useMemo(() => {
     if (!password) return { score: 0, label: '', color: 'transparent' };
@@ -57,19 +50,12 @@ const UpdatePasswordPage = () => {
 
     setLoading(true);
     try {
-      const response = await fetch(`${NEON_AUTH_URL}/reset-password`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token: resetToken, newPassword: password }),
-      });
-      if (!response.ok) {
-        const data = await response.json().catch(() => ({}));
-        throw new Error(data?.message || 'Failed to update password. The link may have expired.');
-      }
+      if (!resetToken) throw new Error('Please request a new password reset link.');
+      await resetPassword(resetToken, password);
       setMessage('Password updated successfully. Redirecting to login…');
-      setTimeout(() => navigate('/login'), 3000);
-    } catch (err: any) {
-      setError(err.message || 'Failed to update password. Please request a new link.');
+      redirectTimer.current = setTimeout(() => navigate('/login'), 3000);
+    } catch (err: unknown) {
+      setError(errorMessage(err) || 'Failed to update password. Please request a new link.');
     } finally {
       setLoading(false);
     }

@@ -1,6 +1,7 @@
 import React from 'react';
 
 interface Job {
+  is_current?: boolean;
   id: number;
   title: string;
   company: string;
@@ -35,7 +36,7 @@ const JobCard: React.FC<JobCardProps> = ({ job, onOpenDetails, onStatusChange })
     if (!dateString) return 'N/A';
     try {
       return new Date(dateString).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
-    } catch (e) {
+    } catch {
       return dateString;
     }
   };
@@ -71,9 +72,10 @@ const JobCard: React.FC<JobCardProps> = ({ job, onOpenDetails, onStatusChange })
           <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px' }}>{job.location}</p>
         </div>
 
+        {job.is_current === false && <p className="badge" style={{marginBottom:8}}>Application history · no longer a current recommendation</p>}
         {/* Score & Date */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12px', color: 'var(--text-muted)', marginBottom: 'var(--space-3)' }}>
-          {job.relevance_score !== undefined && (
+          {job.is_current !== false && job.relevance_score !== undefined && (
             <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
               <span style={{
                 fontWeight: 600,

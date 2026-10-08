@@ -1,148 +1,62 @@
-# IntelliApply: Apply smarter, not harder.
+# IntelliApply
 
-IntelliApply is a full-stack web application designed to automate and personalize the job search process. It takes a user's resume and preferences, scrapes job boards, uses AI to find and rank the most relevant job postings, and presents them on a personalized dashboard.
+IntelliApply extracts profile information from PDF/DOCX resumes with Gemini, discovers job listings, ranks them with TF-IDF and cosine similarity, and tracks application decisions. The frontend uses React, TypeScript, Vite and Tailwind; the API uses FastAPI and PostgreSQL. Neon Auth manages accounts, password recovery and Google OAuth.
 
-## Project Overview
+Hacker News is the default source. WeWorkRemotely is optional and requires Firecrawl. LinkedIn, Indeed, Affinda and spaCy are not active integrations. Source descriptions can be summaries; the original listing remains the source of full application details. Similarity scores are ranking signals, not calibrated probabilities or measured hiring accuracy. Location preferences affect profile text; salary filtering is unavailable because the feeds do not provide consistent salary metadata.
 
-### Core Problem Addressed
+## Local development
 
-Job seekers waste excessive time manually searching multiple job boards, filtering irrelevant postings, and performing repetitive tasks, hindering efficient connection with suitable opportunities.
-
-### Core Solution
-
-IntelliApply acts as an AI co-pilot. It parses user profiles/resumes, automatically discovers relevant jobs via web scraping, uses AI (TF-IDF + Cosine Similarity) for accurate profile-to-job matching, and displays prioritized results — significantly reducing manual effort.
-
-### Key Features
-
-- **User Authentication** — Secure Sign-up, Login, and Google OAuth via Neon Auth (Better Auth)
-- **Profile Creation & Resume Upload** — Upload a PDF/DOCX resume to auto-populate skills and experience
-- **Resume Parsing** — Extracts key entities from resumes using NLP
-- **Web Scraping Engine** — Scrapes job postings from HackerNews and WeWorkRemotely
-- **AI Matching Engine** — Matches your profile against jobs using TF-IDF vectorization and Cosine Similarity
-- **Job Dashboard** — Displays ranked job postings sorted by relevance
-- **Job Tracking** — Mark jobs as *Interested*, *Applied*, or *Ignored*
-
----
-
-## Technology Stack
-
-| Layer | Technology |
-|---|---|
-| **Frontend** | React.js (Vite), TypeScript, Tailwind CSS |
-| **Backend** | Python, FastAPI |
-| **Database** | PostgreSQL via **Neon** |
-| **Authentication** | **Neon Auth** (Better Auth) |
-| **Resume Parsing** | PyPDF2 / python-docx, spaCy, Affinda API |
-| **Web Scraping** | BeautifulSoup4, requests |
-| **AI Matching** | scikit-learn (TF-IDF + Cosine Similarity) |
-| **Task Scheduling** | APScheduler (AsyncIOScheduler) |
-
----
-
-## Setup Instructions
-
-### Prerequisites
-
-- Python 3.8+
-- Node.js 16+ and npm
-- A [Neon](https://neon.tech) account (for PostgreSQL + Auth)
-
-### 1. Clone and install dependencies
+Use Python 3.12, Node.js 24 and PostgreSQL 16. From an existing checkout:
 
 ```bash
-# Backend
 cd backend
 python -m venv .venv
-.venv\Scripts\activate       # Windows
-# source .venv/bin/activate  # macOS/Linux
-pip install -r requirements.txt
-
-# Frontend (new terminal)
-cd frontend
-npm install
-```
-
-### 2. Configure environment variables
-
-**`backend/.env`** — already exists with working Neon credentials:
-```env
-DATABASE_URL=postgresql://<user>:<password>@<neon-host>/neondb?sslmode=require
-NEON_AUTH_URL=https://<your-neon-auth-endpoint>/auth
-SECRET_KEY=<your-secret-key>
-FRONTEND_URL=http://localhost:5174
-UPLOAD_DIRECTORY=./uploads
-GEMINI_API_KEY=<optional>
-AFFINDA_API_KEY=<optional>
-```
-
-**`frontend/.env`** — already exists with working Neon credentials:
-```env
-VITE_API_URL=http://localhost:8000
-VITE_NEON_AUTH_URL=https://<your-neon-auth-endpoint>/auth
-```
-
-### 3. Run the application
-
-#### Option A — Single command (recommended)
-
-From the project root:
-```bash
+source .venv/bin/activate
+python -m pip install --require-hashes -r requirements-dev.lock
+cp .env.example .env
+# Configure DATABASE_URL and the public Neon auth endpoint in .env.
+python -m alembic upgrade head
+cd ../frontend
+npm ci
+cp .env.example .env
+# Configure the same Neon Auth project's public endpoint.
+cd ..
 npm start
 ```
 
-This starts both the FastAPI backend and the Vite frontend server concurrently.
+On Windows, activate `backend\.venv\Scripts\activate` instead. Run migration commands from `backend`. `npm start` selects the local Python environment and starts both servers. Vite proxies `/api` to port 8000. Process environment variables override `backend/.env`. Secret environment files and uploaded resumes must never be committed. The reviewed `frontend/.env.production` contains only the two public service destinations confirmed from the deployed site; project environment variables override those values.
 
-#### Option B — Run individually
+The public frontend variables are `VITE_API_BASE_URL` and `VITE_NEON_AUTH_URL`. A build requires both explicitly, either in the reviewed public production file or in host environment bindings. For local development `VITE_API_BASE_URL=/` uses Vite's proxy. Vercel serves the frontend; the existing API host is Render (`https://intelliapply.onrender.com`). The SPA fallback in `frontend/vercel.json` does not provide an API proxy. A same-origin production API requires an explicit API rewrite before that fallback. A staging backend/auth project must override the production defaults.
+
+The API does not create/alter tables at import. Alembic owns schema changes. Its first migration supports a clean database and the previous schema, rejects conflicting data before proceeding, and never deletes records to satisfy constraints. See [the release guide](docs/RELEASE.md) before applying it to existing data.
+
+## Verification
+
+`npm test` runs PostgreSQL integration tests, Python correctness lint, frontend lint, a TypeScript/production build and Chromium workflows. Start a **local test PostgreSQL service** whose admin can create disposable databases; tests refuse a remote admin host and create/drop only a random `intelliapply_test_*` database. They never use the application database or real provider keys.
 
 ```bash
-# Terminal 1 — Backend
-cd backend
-uvicorn app.main:app --reload
-
-# Terminal 2 — Frontend
+export TEST_DATABASE_ADMIN_URL=postgresql://postgres@127.0.0.1:5432/postgres
+# Install Playwright's browser on a machine without system Chromium:
 cd frontend
-npm run dev
+npx playwright install chromium
+cd ..
+npm test
 ```
 
-The frontend runs on `http://localhost:5174` and the backend API on `http://localhost:8000`.
+Individual checks: `backend/.venv/bin/python -m pytest` from `backend`; `npm run lint -- --max-warnings=0` or `npm test` from `frontend`. Browser tests inject synthetic build configuration and intercept provider/API requests. Gemini contract tests use the real client with a mock HTTP transport. These prove local contracts, not deployed OAuth, email delivery, database credentials or paid-provider availability. CI is defined in [.github/workflows/ci.yml](.github/workflows/ci.yml).
 
----
+`/health` is liveness. `/ready` checks database/schema availability and reports configured optional capabilities without spending model/scraper credits. API routes are documented at `/docs`; protected requests require a verified Neon JWT. Task polling is authenticated and scoped to its owner.
 
-## Project Structure
+## Operational behavior
 
-```
-IntelliApply/
-├── backend/
-│   ├── app/
-│   │   ├── api/          # FastAPI route handlers (auth, jobs, profile)
-│   │   ├── core/         # Config, schemas, security, Neon Auth JWT verification
-│   │   ├── db/           # SQLAlchemy models and database session
-│   │   └── services/     # Business logic: scraping, matching, resume parsing
-│   └── requirements.txt
-├── frontend/
-│   └── src/
-│       ├── components/   # Shared UI components (Navbar, Footer, etc.)
-│       ├── context/      # AuthContext (Neon Auth session management)
-│       ├── lib/          # neon.ts — Neon Auth client library
-│       ├── pages/        # Page components (Dashboard, Profile, Login, etc.)
-│       └── services/     # api.ts — Axios API client
-├── package.json          # Root scripts to start both servers
-└── README.md
-```
+Refresh and resume processing return HTTP 202 with a task ID. PostgreSQL retains pending/running/completed/partial-failure/failed/interrupted status. The browser waits for an actual terminal result. Task state survives restarts; execution uses FastAPI background tasks. An interrupted upload requires another upload because resume bytes are not retained. Processing expires after 120 seconds by default; terminal status is retained for seven days.
 
----
+Admission is coordinated across processes using PostgreSQL locks. Defaults: four active tasks, 60 seconds between a user's refresh requests, 30 seconds between resume requests, ten seconds between provider-wide resume starts, and 15 minutes between source scrapes. Limits return 429 and `Retry-After`. Provider quota failures impose a further cooldown. These application limits do not measure or guarantee Gemini/Firecrawl account RPM, TPM, RPD or credits; tune them from the actual account dashboards.
 
-## Authentication
+Recommendations are recomputed separately from application history. Obsolete pending recommendations disappear, while interested/applied/ignored decisions remain tracked and labelled. Retention skips listings with tracked application decisions. Matching uses at most the latest 500 listings, refits its process-local vocabulary when that corpus changes, and does not deserialize pickle artifacts.
 
-This project uses **Neon Auth** (powered by Better Auth) for all authentication:
+Schedulers coordinate interval claims across workers. They run only while the API process is running; a sleeping hosting plan cannot guarantee periodic execution. Set `SCHEDULER_ENABLED=false` for isolated tests/development where periodic external calls are unwanted. Pool defaults are five connections plus two overflow **per process**; account for all workers and other clients before using a production database.
 
-- The frontend communicates directly with the Neon Auth REST API for sign-up, sign-in, and Google OAuth.
-- JWTs issued by Neon Auth are stored in `localStorage` and sent with every backend API request via the `Authorization: Bearer <token>` header.
-- The backend verifies these JWTs using the Neon Auth JWKS endpoint (`app/core/neon_auth.py`).
-- On first authenticated request, the backend auto-creates a local user record + empty profile in the database.
+Runtime and development dependency locks include hashes. Regenerate intentionally with `uv pip compile requirements.txt -o requirements.lock --generate-hashes` and `uv pip compile requirements.txt requirements-dev.txt -o requirements-dev.lock --generate-hashes`. Use `npm ci` for the frontend. [The remediation report](docs/REMEDIATION.md) records local evidence and remaining release checks.
 
----
-
-## License
-
-MIT License
+The landing-page wireframe uses a small Canvas2D renderer instead of a WebGL framework. It pauses offscreen/in hidden tabs, caps its backing store and stays disabled on small screens or under reduced motion. See [the release follow-up](docs/DEPLOYMENT_STATUS.md) for current deployment evidence and remaining access requirements.

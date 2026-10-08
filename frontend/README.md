@@ -1,54 +1,18 @@
-# React + TypeScript + Vite
+# IntelliApply frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+React 19, TypeScript, Vite 8 and Tailwind 4. Node 24 is the supported toolchain.
 
-Currently, two official plugins are available:
+From this directory:
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react/README.md) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default tseslint.config({
-  extends: [
-    // Remove ...tseslint.configs.recommended and replace with this
-    ...tseslint.configs.recommendedTypeChecked,
-    // Alternatively, use this for stricter rules
-    ...tseslint.configs.strictTypeChecked,
-    // Optionally, add this for stylistic rules
-    ...tseslint.configs.stylisticTypeChecked,
-  ],
-  languageOptions: {
-    // other options...
-    parserOptions: {
-      project: ['./tsconfig.node.json', './tsconfig.app.json'],
-      tsconfigRootDir: import.meta.dirname,
-    },
-  },
-})
+```bash
+npm ci
+npm run dev
+npm run lint -- --max-warnings 0
+npm test
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+The development API proxy targets the local backend on port 8000. [.env.production](.env.production) records the existing public Render API and Neon auth destinations; host variables override it. Use dedicated API/auth destinations for staging; see [.env.example](.env.example). Every `VITE_*` value is public browser configuration, so keep provider keys and database credentials in the backend environment.
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+Browser tests build and serve the frontend with synthetic auth/API responses. They do not send email, call a paid model or prove live provider configuration. A Chromium installation is required; use `npx playwright install chromium` or set `CHROMIUM_PATH` to a compatible system browser.
 
-export default tseslint.config({
-  plugins: {
-    // Add the react-x and react-dom plugins
-    'react-x': reactX,
-    'react-dom': reactDom,
-  },
-  rules: {
-    // other rules...
-    // Enable its recommended typescript rules
-    ...reactX.configs['recommended-typescript'].rules,
-    ...reactDom.configs.recommended.rules,
-  },
-})
-```
+See the [project README](../README.md), [remediation report](../docs/REMEDIATION.md) and [release guide](../docs/RELEASE.md) for setup, all test commands and the staging acceptance walkthrough.

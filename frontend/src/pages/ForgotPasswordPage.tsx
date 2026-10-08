@@ -1,10 +1,9 @@
+import { errorMessage } from '../lib/errors';
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useLoadingState } from '../hooks/useLoadingState';
 
-const NEON_AUTH_URL =
-  import.meta.env.VITE_NEON_AUTH_URL ||
-  'https://ep-green-glade-ajuf7urf.neonauth.c-3.us-east-2.aws.neon.tech/neondb/auth';
+import { requestPasswordReset } from '../lib/neon';
 
 const IntelliApplyLogo = () => (
   <svg width="22" height="22" viewBox="0 0 40 40" fill="none" aria-hidden="true">
@@ -16,7 +15,7 @@ const ForgotPasswordPage = () => {
   const [email, setEmail] = useState('');
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading, resetLoading] = useLoadingState(false, 15000);
+  const [loading, setLoading, resetLoading] = useLoadingState(false);
 
   useEffect(() => () => resetLoading(), [resetLoading]);
 
@@ -27,18 +26,10 @@ const ForgotPasswordPage = () => {
     setLoading(true);
 
     try {
-      const response = await fetch(`${NEON_AUTH_URL}/forget-password`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, redirectTo: `${window.location.origin}/update-password` }),
-      });
-      if (!response.ok) {
-        const data = await response.json().catch(() => ({}));
-        throw new Error(data?.message || 'Failed to send reset email. Please try again.');
-      }
+      await requestPasswordReset(email);
       setMessage('If an account exists for this email, a password reset link has been sent. Check your inbox (and spam folder).');
-    } catch (err: any) {
-      setError(err.message || 'Failed to send password reset email. Please try again.');
+    } catch (err: unknown) {
+      setError(errorMessage(err) || 'Failed to send password reset email. Please try again.');
     } finally {
       setLoading(false);
     }

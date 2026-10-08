@@ -1,7 +1,7 @@
-import { useEffect, useRef } from 'react';
+import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
-import { getSession } from '../lib/neon';
+import { useAuth } from '../context/auth';
+import { getSession, notifyAuthChange } from '../lib/neon';
 
 /**
  * AuthCallbackPage
@@ -13,46 +13,23 @@ import { getSession } from '../lib/neon';
 const AuthCallbackPage = () => {
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
-  const attemptsRef = useRef(0);
-
   useEffect(() => {
-    if (isAuthenticated) {
-      navigate('/dashboard', { replace: true });
-      return;
-    }
-
-    const processOAuthCallback = async () => {
-      console.log('[AuthCallback] Processing OAuth callback...');
-      
-      try {
-        // The SDK automatically checks the URL for `neon_auth_session_verifier` 
-        // and verifies the session with the backend.
-        const { data } = await getSession();
-        
-        if (data?.session?.user) {
-          console.log('[AuthCallback] ✅ Session successfully verified! Going to dashboard.');
-          // A full page reload will ensure AuthContext is re-initialized with the new session
-          window.location.href = '/dashboard';
-        } else {
-          // If the network is slow, it might take a few tries
-          if (attemptsRef.current < 5) {
-            attemptsRef.current += 1;
-            console.log(`[AuthCallback] Session not ready yet. Retrying in 1s (Attempt ${attemptsRef.current})...`);
-            setTimeout(processOAuthCallback, 1000);
-          } else {
-            console.warn('[AuthCallback] ❌ All attempts failed. Redirecting to login.');
-            navigate('/login', { replace: true });
-          }
-        }
-      } catch (err) {
-        console.error('[AuthCallback] Error processing session:', err);
-        navigate('/login', { replace: true });
-      }
+    let cancelled = false;
+    let attempts = 0;
+    let timer: ReturnType<typeof setTimeout>;
+    const recover = async () => {
+      const { data } = await getSession({ force: true });
+      if (cancelled) return;
+      if (data.session) {
+        notifyAuthChange('SIGNED_IN', data.session);
+        navigate('/dashboard', { replace: true });
+      } else if (++attempts < 4) timer = setTimeout(() => void recover(), 1000);
+      else navigate('/login', { replace: true });
     };
-
-    processOAuthCallback();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    if (isAuthenticated) navigate('/dashboard', { replace: true });
+    else void recover();
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [isAuthenticated, navigate]);
 
   return (
     <div

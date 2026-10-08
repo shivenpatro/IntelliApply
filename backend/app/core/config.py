@@ -1,84 +1,69 @@
-import os
-from pydantic_settings import BaseSettings
-from typing import List, Optional
-from dotenv import load_dotenv
-import pathlib
+from pathlib import Path
+from typing import Optional
 
-# Explicitly load .env from the backend directory
-# config.py is in backend/app/core, so backend_dir is three levels up.
-backend_dir = pathlib.Path(__file__).resolve().parent.parent.parent
-dotenv_path = backend_dir / ".env"
-
-if dotenv_path.is_file():
-    print(f"Loading environment variables from: {dotenv_path} with override=True")
-    load_dotenv(dotenv_path=dotenv_path, override=True) # Added override=True
-else:
-    print(f"Warning: .env file not found at {dotenv_path}")
-
-# Determine DATABASE_URL after attempting to load .env with override
-# This logic is now outside the Settings class to avoid Pydantic field issues
-db_url_final = os.getenv("DATABASE_URL")
-if db_url_final:
-    print(f"INFO: DATABASE_URL to be used by Settings: {db_url_final}")
-else:
-    print(f"WARNING: DATABASE_URL not found after .env load. Settings will use default.")
-    db_url_final = "postgresql://postgres:postgres@localhost/intelliapply" # Default
+from pydantic import Field, model_validator
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    # Base settings
+    model_config = SettingsConfigDict(
+        env_file=Path(__file__).resolve().parents[2] / ".env", extra="ignore"
+    )
+    ENVIRONMENT: str = "development"
+    DATABASE_URL: str = "postgresql://postgres:postgres@localhost/intelliapply"
+    FRONTEND_URL: str = "http://localhost:5173"
+    CORS_ORIGINS: str = (
+        "http://localhost:5173,http://localhost:5174,https://intelli-apply.vercel.app"
+    )
+    NEON_AUTH_URL: str = (
+        "https://ep-green-glade-ajuf7urf.neonauth.c-3.us-east-2.aws.neon.tech/neondb/auth"
+    )
+    NEON_AUTH_ISSUER: Optional[str] = None
+    NEON_AUTH_AUDIENCE: Optional[str] = None
+    AUTO_CREATE_SCHEMA: bool = False
+    SCHEDULER_ENABLED: bool = True
+    DB_POOL_SIZE: int = Field(5, ge=1, le=30)
+    DB_MAX_OVERFLOW: int = Field(2, ge=0, le=30)
+    GEMINI_API_KEY: Optional[str] = None
+    GEMINI_MODEL: str = "gemini-2.5-flash"
+    FIRECRAWL_API_KEY: Optional[str] = None
+    MAX_UPLOAD_BYTES: int = Field(5 * 1024 * 1024, ge=1024, le=20 * 1024 * 1024)
+    TASK_TIMEOUT_SECONDS: int = Field(120, ge=10, le=600)
+    TASK_RETENTION_DAYS: int = Field(7, ge=1)
+    REFRESH_COOLDOWN_SECONDS: int = Field(60, ge=1)
+    RESUME_COOLDOWN_SECONDS: int = Field(30, ge=1)
+    RESUME_GLOBAL_INTERVAL_SECONDS: int = Field(10, ge=1, le=3600)
+    PROVIDER_QUOTA_COOLDOWN_SECONDS: int = Field(60, ge=1, le=86400)
+    MAX_ACTIVE_TASKS: int = Field(4, ge=1, le=20)
+    SCRAPE_COOLDOWN_SECONDS: int = Field(900, ge=1)
+    SCRAPER_MAX_JOBS_PER_SOURCE: int = Field(15, ge=1, le=30)
+    SCRAPER_SOURCES: str = "hackernews"
+    SCRAPER_SCHEDULE_HOURS: int = Field(4, ge=1)
+    MATCHER_SCHEDULE_HOURS: int = Field(6, ge=1)
+    JOB_POSTING_RETENTION_DAYS: int = Field(30, ge=1)
+    MATCHER_MAX_JOBS: int = Field(500, ge=1, le=5000)
+    ALLOWED_EXTENSIONS: list[str] = ["pdf", "docx"]
     API_V1_STR: str = "/api"
-    PROJECT_NAME: str = "IntelliApply"
 
-    # CORS
-    FRONTEND_URL: str = os.getenv("FRONTEND_URL", "http://localhost:5173")
+    @model_validator(mode="after")
+    def production_config(self):
+        if self.ENVIRONMENT == "production":
+            if "localhost" in self.DATABASE_URL or self.AUTO_CREATE_SCHEMA:
+                raise ValueError(
+                    "Production requires an explicit database and versioned migrations."
+                )
+            if not self.FRONTEND_URL.startswith("https://") or any(
+                not origin.strip().startswith("https://")
+                for origin in self.CORS_ORIGINS.split(",")
+            ):
+                raise ValueError("Production requires explicit HTTPS frontend origins.")
+            if "NEON_AUTH_URL" not in self.model_fields_set:
+                raise ValueError("Production requires an explicit Neon Auth endpoint.")
+            if not self.NEON_AUTH_ISSUER:
+                raise ValueError(
+                    "Configure NEON_AUTH_ISSUER from the actual provider JWT contract."
+                )
+        return self
 
-    # Security
-    SECRET_KEY: str = os.getenv("SECRET_KEY", "your-secret-key-for-development-only")
-    ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
-
-    # Database
-    DATABASE_URL: str = db_url_final # Assign the determined URL
-
-    # File storage (for resumes)
-    UPLOAD_DIRECTORY: str = os.getenv("UPLOAD_DIRECTORY", "./uploads")
-    ALLOWED_EXTENSIONS: List[str] = ["pdf", "docx"]
-
-    # Scraping settings
-    JOB_SOURCES: List[str] = ["linkedin", "indeed", "hackernews"]
-    SCRAPING_INTERVAL_MINUTES: int = 60
-
-
-    # Neon Auth settings
-    NEON_AUTH_URL: Optional[str] = os.getenv("NEON_AUTH_URL")
-
-
-    # Additional scraper settings
-    SCRAPER_INTERVAL_MINUTES: Optional[int] = int(os.getenv("SCRAPER_INTERVAL_MINUTES", "60")) # Old setting, can be removed or kept for other uses
-    SCRAPER_MAX_JOBS_PER_SOURCE: Optional[int] = int(os.getenv("SCRAPER_MAX_JOBS_PER_SOURCE", "30"))
-    SCRAPER_SOURCES: Optional[str] = os.getenv("SCRAPER_SOURCES", "hackernews")
-    SCRAPER_SCHEDULE_HOURS: Optional[int] = int(os.getenv("SCRAPER_SCHEDULE_HOURS", "4")) # New setting for APScheduler
-    MATCHER_SCHEDULE_HOURS: Optional[int] = int(os.getenv("MATCHER_SCHEDULE_HOURS", "6")) # New setting for APScheduler
-
-    # Eden AI API Key
-    EDEN_AI_API_KEY: Optional[str] = os.getenv("EDEN_AI_API_KEY")
-
-    # Firecrawl API Key
-    FIRECRAWL_API_KEY: Optional[str] = os.getenv("FIRECRAWL_API_KEY")
-
-    # Affinda API Key
-    AFFINDA_API_KEY: Optional[str] = os.getenv("AFFINDA_API_KEY")
-
-    # Data Maintenance
-    JOB_POSTING_RETENTION_DAYS: Optional[int] = int(os.getenv("JOB_POSTING_RETENTION_DAYS", "30"))
-
-    # Gemini API Key
-    GEMINI_API_KEY: Optional[str] = os.getenv("GEMINI_API_KEY")
-
-
-    class Config:
-        env_file = ".env"
-        case_sensitive = True
 
 settings = Settings()

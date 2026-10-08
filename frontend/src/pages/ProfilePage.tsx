@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef, ChangeEvent } from 'react';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/auth';
 import { profileAPI } from '../services/api';
+import { waitForTask } from '../lib/tasks';
+import { errorMessage, retryAfter } from '../lib/errors';
 import { useNavigate, Link } from 'react-router-dom';
 
 /* ── Icon Components ── */
@@ -10,7 +12,7 @@ const BulbIcon = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="non
 const CogIcon = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z"/></svg>;
 const XSmallIcon = () => <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M4.646 4.646a.5.5 0 01.708 0L8 7.293l2.646-2.647a.5.5 0 01.708.708L8.707 8l2.647 2.646a.5.5 0 01-.708.708L8 8.707l-2.646 2.647a.5.5 0 01-.708-.708L7.293 8 4.646 5.354a.5.5 0 010-.708z"/></svg>;
 
-interface UserProfile { id: number; email: string; first_name?: string; last_name?: string; resume_path?: string; desired_roles?: string; desired_locations?: string; min_salary?: number; skills?: Skill[]; experiences?: Experience[]; }
+interface UserProfile { id: string; email: string; first_name?: string; last_name?: string; resume_path?: string; desired_roles?: string; desired_locations?: string; min_salary?: number; skills?: Skill[]; experiences?: Experience[]; }
 interface Skill { id: number; name: string; level?: string; }
 interface Experience { id: number; title: string; company: string; location?: string; start_date?: string; end_date?: string; description?: string; }
 
@@ -24,8 +26,18 @@ const ProfilePage = () => {
   const [uploading, setUploading] = useState<boolean>(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [uploadSuccess, setUploadSuccess] = useState<string | null>(null);
+  const [uploadProgress, setUploadProgress] = useState('');
+  const [cooldownUntil, setCooldownUntil] = useState(0);
+  const [clock, setClock] = useState(() => Date.now());
+  useEffect(() => {
+    if (!cooldownUntil) return;
+    const timer = setInterval(() => setClock(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, [cooldownUntil]);
 
-  const [preferences, setPreferences] = useState({ desired_roles: '' });
+  const [preferences, setPreferences] = useState({ desired_roles: '', desired_locations: '' });
+  const uploadOperation = useRef<AbortController | null>(null);
+  useEffect(() => () => uploadOperation.current?.abort(), []);
   const [savingPreferences, setSavingPreferences] = useState(false);
   const [preferencesSuccess, setPreferencesSuccess] = useState<string | null>(null);
   const [preferencesError, setPreferencesError] = useState<string | null>(null);
@@ -36,6 +48,10 @@ const ProfilePage = () => {
   const [accountInfoError, setAccountInfoError] = useState<string | null>(null);
 
   const [activeSkills, setActiveSkills] = useState<Skill[]>([]);
+  const [editingExperience, setEditingExperience] = useState<number | null>(null);
+  const [experienceDraft, setExperienceDraft] = useState({ title: '', company: '', location: '', start_date: '', end_date: '', description: '' });
+  const [experienceSaving, setExperienceSaving] = useState(false);
+  const [experienceError, setExperienceError] = useState<string | null>(null);
   const [newSkill, setNewSkill] = useState('');
   const [skillLevel, setSkillLevel] = useState('Intermediate');
   const [addingSkill, setAddingSkill] = useState(false);
@@ -49,83 +65,75 @@ const ProfilePage = () => {
         try {
           const profileData = await profileAPI.getProfile();
           setProfile(profileData);
-          setPreferences({ desired_roles: profileData.desired_roles || '' });
+          setPreferences({ desired_roles: profileData.desired_roles || '', desired_locations: profileData.desired_locations || '' });
           setAccountInfo({ email: user?.email || profileData.email || '', first_name: profileData.first_name || '', last_name: profileData.last_name || '' });
           if (profileData.skills) setActiveSkills(profileData.skills);
-        } catch (err: any) { setError(err.message || 'Failed to load profile.'); } 
+        } catch (err: unknown) { setError(errorMessage(err) || 'Failed to load profile.'); }
         finally { setLoading(false); }
       };
-      fetchProfile();
-    } else if (!authLoading && !isAuthenticated) {
-      setError("Please log in to view your profile."); setLoading(false);
+      const timer = setTimeout(() => void fetchProfile(), 0);
+      return () => clearTimeout(timer);
     }
   }, [isAuthenticated, authLoading, user?.email]);
 
   const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
     if (event.target.files && event.target.files[0]) {
-      setFile(event.target.files[0]); setUploadError(null); setUploadSuccess(null);
+      const selected = event.target.files[0];
+      if (!/\.(pdf|docx)$/i.test(selected.name) || selected.size > 5 * 1024 * 1024) {
+        setFile(null); event.target.value = ''; setUploadError('Choose a PDF or DOCX smaller than 5 MiB.'); return;
+      }
+      setFile(selected); setUploadError(null); setUploadSuccess(null);
     }
   };
 
   const handleUpload = async (event: React.FormEvent) => {
     event.preventDefault();
-    if (!file) { setUploadError('Please select a file to upload.'); return; }
-    setUploading(true); setUploadError(null); setUploadSuccess(null);
+    if (!file || uploadOperation.current || Date.now() < cooldownUntil) return;
+    if (file.size > 5 * 1024 * 1024) { setUploadError('Choose a PDF or DOCX smaller than 5 MiB.'); return; }
+    const controller = new AbortController(); uploadOperation.current = controller;
+    setUploading(true); setUploadError(null); setUploadSuccess(null); setUploadProgress('Submitting your resume…');
     try {
-      const initialResponse = await profileAPI.uploadResume(file);
-      setUploadSuccess(initialResponse.message || 'Resume uploaded. Processing started... Profile will refresh shortly.');
-      setFile(null);
-      const fileInput = document.getElementById('resume-upload') as HTMLInputElement;
-      if (fileInput) fileInput.value = '';
-
-      setTimeout(async () => {
-        try {
-          console.log('[ProfilePage] Refetching profile data after resume upload delay...');
-          const profileData = await profileAPI.getProfile();
-          setProfile(profileData);
-          if (profileData.first_name || profileData.last_name) {
-            console.log('[ProfilePage] Saving extracted name to backend...');
-            await profileAPI.updatePreferences({
-              first_name: profileData.first_name || '',
-              last_name: profileData.last_name || ''
-            });
-            setAccountInfo(prev => ({ ...prev, first_name: profileData.first_name || '', last_name: profileData.last_name || '' }));
-            setAccountInfoSuccess('Name updated from resume!');
-          }
-
-          if (profileData.skills) setActiveSkills(profileData.skills);
-          setUploadSuccess(`Resume processed. Name: ${profileData.first_name || ''} ${profileData.last_name || ''}. Skills found: ${profileData.skills?.length || 0}.`);
-        } catch (fetchErr: any) {
-          console.error('[ProfilePage] Error fetching profile after resume upload delay:', fetchErr);
-          setUploadError(fetchErr.response?.data?.detail || fetchErr.message || 'Failed to refresh profile data after resume processing.');
-        } finally {
-          setUploading(false);
-        }
-      }, 7000);
-    } catch (err: any) { 
-      setUploadError(err.response?.data?.detail || err.message || 'Failed to upload resume.'); 
-      setUploading(false);
+      const accepted = await profileAPI.uploadResume(file);
+      if (controller.signal.aborted) return;
+      if (!accepted.task_id) throw new Error('The backend must be updated before resume processing can be verified.');
+      const result = await waitForTask(() => profileAPI.getResumeStatus(accepted.task_id), controller.signal, setUploadProgress);
+      if (result.status !== 'completed') throw new Error(result.message);
+      const updated = await profileAPI.getProfile();
+      if (controller.signal.aborted) return;
+      setProfile(updated); setActiveSkills(updated.skills || []);
+      setAccountInfo(prev => ({ ...prev, first_name: updated.first_name || '', last_name: updated.last_name || '' }));
+      setUploadSuccess(result.message); setFile(null);
+      const input = document.getElementById('resume-upload') as HTMLInputElement;
+      if (input) input.value = '';
+    } catch (err) {
+      if (!controller.signal.aborted) {
+        setUploadSuccess(null); setUploadError(errorMessage(err));
+        const seconds = retryAfter(err);
+        if (seconds) { setClock(Date.now()); setCooldownUntil(Date.now() + seconds * 1000); }
+      }
+    } finally {
+      uploadOperation.current = null;
+      if (!controller.signal.aborted) { setUploading(false); setUploadProgress(''); }
     }
   };
 
   const handleAccountInfoChange = (e: React.ChangeEvent<HTMLInputElement>) => setAccountInfo(prev => ({ ...prev, [e.target.name]: e.target.value }));
-  
+
   const handleAccountInfoSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSavingAccountInfo(true);
     setAccountInfoError(null);
     setAccountInfoSuccess(null);
     try {
-      const accountData = { 
+      const accountData = {
         first_name: accountInfo.first_name,
         last_name: accountInfo.last_name
       };
-      const updatedProfileData = await profileAPI.updatePreferences(accountData); 
+      const updatedProfileData = await profileAPI.updatePreferences(accountData);
       setProfile(prev => prev ? {...prev, ...updatedProfileData} : updatedProfileData);
       setAccountInfoSuccess('Account information updated successfully!');
-    } catch (err: any) {
-      console.error('Error updating account info:', err);
-      setAccountInfoError(err.response?.data?.detail || err.message || 'Failed to update account information.');
+    } catch (err: unknown) {
+      setAccountInfoError(errorMessage(err) || 'Failed to update account information.');
     } finally {
       setSavingAccountInfo(false);
     }
@@ -139,20 +147,19 @@ const ProfilePage = () => {
     setPreferencesError(null);
     setPreferencesSuccess(null);
     try {
-      const preferencesData = { desired_roles: preferences.desired_roles };
+      const preferencesData = preferences;
       const updatedProfileData = await profileAPI.updatePreferences(preferencesData);
       setProfile(prev => prev ? {...prev, ...updatedProfileData} : updatedProfileData);
       setPreferencesSuccess('Preferences updated successfully!');
-    } catch (err: any) {
-      console.error('Error updating preferences:', err);
-      setPreferencesError(err.response?.data?.detail || err.message || 'Failed to update preferences.');
+    } catch (err: unknown) {
+      setPreferencesError(errorMessage(err) || 'Failed to update preferences.');
     } finally {
       setSavingPreferences(false);
     }
   };
 
-  const handleAddSkill = async (e: React.FormEvent) => { 
-    e.preventDefault(); 
+  const handleAddSkill = async (e: React.FormEvent) => {
+    e.preventDefault();
     if (!newSkill.trim()) {
       setSkillError("Skill name cannot be empty.");
       return;
@@ -162,9 +169,9 @@ const ProfilePage = () => {
     setSkillSuccess(null);
     try {
       const newSkillData = [{ name: newSkill.trim(), level: skillLevel }];
-      const addedSkillsResponse = await profileAPI.addSkills(newSkillData); 
+      const addedSkillsResponse = await profileAPI.addSkills(newSkillData);
       if (Array.isArray(addedSkillsResponse)) {
-        setActiveSkills(prev => [...prev, ...addedSkillsResponse]);
+        setActiveSkills(prev => Array.from(new Map([...prev, ...addedSkillsResponse].map(skill => [skill.id, skill])).values()));
       } else if (addedSkillsResponse && typeof addedSkillsResponse === 'object') {
         setActiveSkills(prev => [...prev, addedSkillsResponse as Skill]);
       } else {
@@ -172,10 +179,9 @@ const ProfilePage = () => {
         if (profileData.skills) setActiveSkills(profileData.skills);
       }
       setSkillSuccess(`"${newSkill.trim()}" added successfully!`);
-      setNewSkill(''); 
-    } catch (err: any) {
-      console.error('[ProfilePage] Error adding skill:', err);
-      setSkillError(err.response?.data?.detail || err.message || 'Failed to add skill.');
+      setNewSkill('');
+    } catch (err: unknown) {
+      setSkillError(errorMessage(err) || 'Failed to add skill.');
     } finally {
       setAddingSkill(false);
     }
@@ -187,10 +193,9 @@ const ProfilePage = () => {
     try {
       await profileAPI.deleteSkill(skillId);
       setActiveSkills(prev => prev.filter(skill => skill.id !== skillId));
-      setSkillSuccess('Skill removed.'); 
-    } catch (err: any) {
-      console.error('[ProfilePage] Error removing skill:', err);
-      setSkillError(err.response?.data?.detail || err.message || 'Failed to remove skill.');
+      setSkillSuccess('Skill removed.');
+    } catch (err: unknown) {
+      setSkillError(errorMessage(err) || 'Failed to remove skill.');
     }
   };
 
@@ -200,17 +205,32 @@ const ProfilePage = () => {
       setSkillSuccess(null);
       try {
         const success = await profileAPI.deleteAllSkills();
-        if (success) { 
-          setActiveSkills([]); 
+        if (success) {
+          setActiveSkills([]);
           setSkillSuccess('All skills have been deleted.');
         } else {
           setSkillError('Failed to delete all skills. The operation may not have completed as expected.');
         }
-      } catch (err: any) {
-        console.error('[ProfilePage] Error deleting all skills:', err);
-        setSkillError(err.response?.data?.detail || err.message || 'Failed to delete all skills.');
+      } catch (err: unknown) {
+        setSkillError(errorMessage(err) || 'Failed to delete all skills.');
       }
     }
+  };
+
+  const saveExperience = async (event: React.FormEvent) => {
+    event.preventDefault(); setExperienceSaving(true); setExperienceError(null);
+    try {
+      const values = { ...experienceDraft, start_date: experienceDraft.start_date || undefined, end_date: experienceDraft.end_date || undefined };
+      if (editingExperience) await profileAPI.updateExperience(editingExperience, values);
+      else await profileAPI.addExperiences([values]);
+      setProfile(await profileAPI.getProfile()); setEditingExperience(null);
+      setExperienceDraft({ title: '', company: '', location: '', start_date: '', end_date: '', description: '' });
+    } catch (err) { setExperienceError(errorMessage(err)); }
+    finally { setExperienceSaving(false); }
+  };
+  const deleteExperience = async (id: number) => {
+    try { await profileAPI.deleteExperience(id); setProfile(await profileAPI.getProfile()); }
+    catch (err) { setExperienceError(errorMessage(err)); }
   };
 
   const handleFindJobs = () => navigate('/dashboard?refresh=true');
@@ -303,7 +323,7 @@ const ProfilePage = () => {
               <label htmlFor="resume-upload" className="input-label">Resume file</label>
               <input
                 id="resume-upload" name="resume-upload" type="file"
-                onChange={handleFileChange} accept=".pdf,.doc,.docx"
+                onChange={handleFileChange} accept=".pdf,.docx"
                 className="input-field"
                 style={{ padding: '8px' }}
                 disabled={uploading}
@@ -311,11 +331,12 @@ const ProfilePage = () => {
               {file && <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>Selected: {file.name}</p>}
             </div>
             <div>
-              <button type="submit" disabled={!file || uploading} className="btn btn-primary">
+              <button type="submit" disabled={!file || uploading || clock < cooldownUntil} className="btn btn-primary">
                 {uploading ? 'Processing Resume...' : 'Upload & Parse Resume'}
               </button>
             </div>
-            {uploading && <p className="text-body" style={{ fontSize: '13px' }}>Analyzing your resume... this may take a moment.</p>}
+            {uploading && <p role="status" className="text-body">{uploadProgress}</p>}
+            {clock < cooldownUntil && <p role="status">Retry available in {Math.ceil((cooldownUntil-clock)/1000)} seconds.</p>}
           </form>
         </section>
 
@@ -381,6 +402,25 @@ const ProfilePage = () => {
           )}
         </section>
 
+        <section className="card" style={{padding:'var(--space-6)'}}>
+          <h2 className="text-h2">Experience</h2>
+          {experienceError && <p role="alert" className="alert alert-error">{experienceError}</p>}
+          {(profile.experiences || []).map(experience => <div key={experience.id} style={{marginBottom:16}}>
+            <p><strong>{experience.title}</strong> · {experience.company}</p>
+            <button className="btn btn-secondary btn-sm" onClick={() => {
+              setEditingExperience(experience.id);
+              setExperienceDraft({title:experience.title,company:experience.company,location:experience.location || '',start_date:(experience.start_date || '').slice(0,10),end_date:(experience.end_date || '').slice(0,10),description:experience.description || ''});
+            }}>Edit experience</button>
+            <button className="btn btn-sm" onClick={() => void deleteExperience(experience.id)}>Remove experience</button>
+          </div>)}
+          <form onSubmit={saveExperience} style={{display:'grid',gap:12}}>
+            {(['title','company','location','start_date','end_date','description'] as const).map(field => <label key={field} className="input-label">
+              {({title:'Job title',company:'Company',location:'Work location',start_date:'Start date',end_date:'End date',description:'Responsibilities'})[field]}
+              <input className="input-field" type={field.endsWith('date') ? 'date' : 'text'} required={field==='title' || field==='company'} value={experienceDraft[field]} onChange={event => setExperienceDraft(previous => ({...previous,[field]:event.target.value}))}/>
+            </label>)}
+            <button className="btn btn-primary" disabled={experienceSaving}>{experienceSaving ? 'Saving…' : editingExperience ? 'Save Experience' : 'Add Experience'}</button>
+          </form>
+        </section>
         {/* Job Preferences */}
         <section className="card card-feature card-hover" style={{ padding: 'var(--space-6)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', marginBottom: 'var(--space-4)' }}>
@@ -395,6 +435,11 @@ const ProfilePage = () => {
               <label htmlFor="desired_roles" className="input-label">Desired Roles (comma separated)</label>
               <input type="text" name="desired_roles" id="desired_roles" value={preferences.desired_roles} onChange={handlePreferencesChange} placeholder="Software Engineer, Frontend Developer, etc." className="input-field" />
               <p style={{ marginTop: '4px', fontSize: '12px', color: 'var(--text-muted)' }}>List roles you're interested in, separated by commas.</p>
+            </div>
+            <div>
+              <label htmlFor="desired_locations" className="input-label">Preferred locations</label>
+              <input id="desired_locations" name="desired_locations" className="input-field" value={preferences.desired_locations} onChange={handlePreferencesChange} placeholder="Remote, Bengaluru, etc." />
+              <p className="text-body" style={{fontSize:12}}>Location helps rank matches; it is not a strict geographic filter. Salary filtering is unavailable because these feeds do not provide consistent salary data.</p>
             </div>
             <div>
               <button type="submit" disabled={savingPreferences} className="btn btn-primary">

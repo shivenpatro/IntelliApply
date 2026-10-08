@@ -7,6 +7,9 @@
 /* === FONTS === */
 @import url('https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400;1,500;1,600&family=IBM+Plex+Mono:ital,wght@0,400;0,500;0,600;1,400&display=swap');
 
+@import "tailwindcss";
+@config "../tailwind.config.js";
+
 /* === DESIGN TOKENS === */
 :root {
   /* --- BACKGROUNDS (warm paper) --- */
@@ -104,9 +107,7 @@
 }
 
 /* === TAILWIND DIRECTIVES === */
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+
 
 /* === BASE === */
 @layer base {
@@ -543,7 +544,7 @@ select.input-field {
 .hero {
   min-height: 100vh;
   display: grid;
-  grid-template-columns: 1.15fr 0.85fr;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
   align-items: center;
   gap: var(--space-8);
   padding: 140px max(5vw, 32px) var(--space-10);
@@ -553,13 +554,23 @@ select.input-field {
   margin: 0 auto;
 }
 @media (max-width: 860px) {
-  .hero { grid-template-columns: 1fr; padding-top: 110px; min-height: auto; }
+  .hero { grid-template-columns: minmax(0, 1fr); padding-top: 110px; min-height: auto; }
   .hero-visual { display: none; }
 }
 
 .hero-preview {
   max-width: 380px;
   margin-left: auto;
+}
+.hero > * { min-width: 0; }
+.hero .text-display { overflow-wrap: anywhere; }
+.job-modal-content { flex: 1; min-height: 0; display: flex; overflow: auto; }
+.job-modal-sidebar { width: 280px; flex-shrink: 0; border-right: 1px solid var(--border-subtle); }
+.job-modal-description { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+@media (max-width: 640px) {
+  .job-modal-content { display: block; }
+  .job-modal-sidebar { width: 100%; border-right: 0; border-bottom: 1px solid var(--border-subtle); }
+  .job-modal-description { width: 100%; }
 }
 
 .hero-orb-stage {
@@ -650,7 +661,7 @@ select.input-field {
 
 .feature-row {
   display: grid;
-  grid-template-columns: 0.4fr 1.6fr 1fr;
+  grid-template-columns: minmax(0, 0.4fr) minmax(0, 1.6fr) minmax(0, 1fr);
   gap: var(--space-7);
   align-items: start;
   padding: var(--space-9) 0;
@@ -668,7 +679,7 @@ select.input-field {
 }
 
 @media (max-width: 860px) {
-  .feature-row { grid-template-columns: 1fr; gap: var(--space-5); padding: var(--space-7) 0; }
+  .feature-row { grid-template-columns: minmax(0, 1fr); gap: var(--space-5); padding: var(--space-7) 0; }
 }
 
 /* Process section */
@@ -1055,3 +1066,7 @@ select.input-field {
   }
   .reveal, .reveal-stagger > * { opacity: 1 !important; transform: none !important; }
 }
+
+.feature-row > * { min-width: 0; }
+.feature-visual-resume .field-row { flex-wrap: wrap; }
+.feature-visual-resume .field-value { min-width: 0; overflow-wrap: anywhere; }

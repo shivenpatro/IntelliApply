@@ -1,63 +1,49 @@
-import logging
-from sqlalchemy.orm import Session
-from sqlalchemy.exc import IntegrityError # Import IntegrityError
+import asyncio
+from datetime import datetime, timezone
+from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
+
+from sqlalchemy.dialects.postgresql import insert
+
+from app.db.database import SessionLocal
 from app.db.models import Job
-from urllib.parse import urlparse, urlunparse, parse_qs, urlencode
 
-logger = logging.getLogger(__name__)
 
-async def save_jobs_to_db(jobs: list, db: Session = None): # db parameter kept for backward compatibility but ignored
-    """Save scraped jobs to the database, handling duplicates based on canonical URL."""
-    from app.db.database import SessionLocal
-    local_db = SessionLocal()
-    try:
-        new_jobs_count = 0
-        processed_urls_in_batch = set()
+def canonical_url(value):
+    parsed = urlparse(value or "")
+    if parsed.scheme not in ("http", "https") or not parsed.hostname:
+        return None
+    params = {
+        k: v
+        for k, v in parse_qs(parsed.query).items()
+        if not k.lower().startswith("utm_")
+        and k.lower() not in ("gclid", "fbclid", "mc_cid", "mc_eid", "_ga")
+    }
+    return urlunparse(parsed._replace(query=urlencode(params, doseq=True), fragment=""))
 
-        for job_data in jobs:
-            raw_url = job_data.get("url")
-            if not raw_url:
-                logger.warning(f"Skipping job due to missing URL: {job_data.get('title', 'N/A')}")
+
+def _save(jobs):
+    with SessionLocal() as db:
+        for item in jobs:
+            value = dict(item)
+            value["url"] = canonical_url(value.get("url"))
+            value["scraped_at"] = datetime.now(timezone.utc)
+            if not value["url"]:
                 continue
+            statement = (
+                insert(Job)
+                .values(**value)
+                .on_conflict_do_update(
+                    index_elements=[Job.url],
+                    set_={
+                        k: v
+                        for k, v in value.items()
+                        if k not in ("url", "posted_date")
+                    },
+                )
+            )
+            db.execute(statement)
+        db.commit()
 
-            parsed_url = urlparse(raw_url)
-            query_params = parse_qs(parsed_url.query)
-            
-            tracking_params_to_remove = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content', 'gclid', 'fbclid', 'mc_cid', 'mc_eid', '_ga']
-            filtered_query_params = {k: v for k, v in query_params.items() if k.lower() not in tracking_params_to_remove}
-            
-            canonical_url = urlunparse(parsed_url._replace(query=urlencode(filtered_query_params, doseq=True)))
-            
-            if not canonical_url:
-                logger.warning(f"Skipping job due to invalid canonical URL for raw URL: {raw_url}")
-                continue
 
-            job_data["url"] = canonical_url
-
-            if canonical_url in processed_urls_in_batch:
-                logger.info(f"Skipping duplicate job (already processed in this batch) for URL: {canonical_url}")
-                continue
-            
-            processed_urls_in_batch.add(canonical_url)
-
-            existing_job = local_db.query(Job).filter(Job.url == canonical_url).first()
-            if not existing_job:
-                job = Job(**job_data)
-                local_db.add(job)
-                new_jobs_count +=1
-    
-        if new_jobs_count > 0:
-            try:
-                local_db.commit() # Commit after processing all jobs in the batch
-                logger.info(f"Added {new_jobs_count} new jobs to the database.")
-            except IntegrityError as e: 
-                local_db.rollback()
-                logger.warning(f"Database integrity error during batch save: {e}")
-            except Exception as e:
-                local_db.rollback()
-                logger.error(f"Unexpected error during batch save of jobs: {e}", exc_info=True)
-                raise
-        else:
-            logger.info("No new jobs to add to the database from this batch.")
-    finally:
-        local_db.close()
+async def save_jobs_to_db(jobs, db=None):
+    await asyncio.to_thread(_save, jobs)

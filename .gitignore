@@ -32,7 +32,6 @@ backend/.env
 .env.development.local
 .env.test.local
 .env.production.local
-frontend/.env.production
 
 # IDE files
 .idea/
@@ -77,8 +76,8 @@ resume.pdf
 *.pdf
 
 # Root-level test scripts and output files
-test_*.py
-test_out*.txt
+/test_*.py
+/test_out*.txt
 
 # Duplicate root requirements (real one lives in backend/)
 /requirements.txt
@@ -92,3 +91,9 @@ ENV.bak/
 .virtualenv/
 .venv312/
 .clinerules/
+
+# Regression test outputs
+frontend/test-results/
+frontend/playwright-report/
+.pytest_cache/
+.mypy_cache/

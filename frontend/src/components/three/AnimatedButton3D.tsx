@@ -41,7 +41,7 @@ export default function AnimatedButton3D({
   // Use static values instead of animated ones
   const scale = hovered ? 1.1 : 1;
   const buttonColor = hovered ? hoverColor : color;
-  const buttonPosition = clicked ? [0, -0.05, 0] : [0, 0, 0];
+  const buttonPosition: [number, number, number] = clicked ? [0, -0.05, 0] : [0, 0, 0];
 
 
   // Handle hover and click events
@@ -54,7 +54,7 @@ export default function AnimatedButton3D({
   const handleClick = () => {
     setClicked(true);
     setTimeout(() => setClicked(false), 150);
-    onClick && onClick();
+    onClick?.();
   };
 
   // Add subtle floating animation
@@ -69,7 +69,7 @@ export default function AnimatedButton3D({
       <mesh // Use regular mesh instead of animated.mesh
         ref={meshRef}
         scale={scale}
-        position={buttonPosition as any}
+        position={buttonPosition}
         onPointerOver={handlePointerOver}
         onPointerOut={handlePointerOut}
         onClick={handleClick}

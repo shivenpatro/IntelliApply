@@ -1,0 +1,58 @@
+name: Regression and dependency checks
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  regression:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: test-password
+          POSTGRES_DB: postgres
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s --health-timeout 5s --health-retries 5
+    env:
+      TEST_DATABASE_ADMIN_URL: postgresql://postgres:test-password@127.0.0.1:5432/postgres
+      SCHEDULER_ENABLED: 'false'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: python -m pip install --require-hashes -r backend/requirements-dev.lock
+      - run: npm ci
+        working-directory: frontend
+      - run: npx playwright install --with-deps chromium
+        working-directory: frontend
+      - run: npm test
+      - run: docker build --tag intelliapply-ci backend
+      - run: docker run --rm --env ENVIRONMENT=test --env SCHEDULER_ENABLED=false intelliapply-ci python -c 'import os, app.main; assert os.getuid() != 0'
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: browser-failure-results
+          path: frontend/test-results
+  advisories:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+      - run: python -m pip install pip-audit
+      - run: pip-audit --vulnerability-service pypi -r backend/requirements-dev.lock
+      - run: npm ci && npm audit
+        working-directory: frontend

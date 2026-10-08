@@ -1,4 +1,4 @@
-import { useRef, useEffect } from 'react';
+import { useRef, useEffect, useMemo } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 // import { EffectComposer, Bloom, Vignette } from '@react-three/postprocessing'; // Commented out due to build issues
 import * as THREE from 'three';
@@ -9,8 +9,7 @@ function GradientBackground() {
   const meshRef = useRef<THREE.Mesh>(null);
   
   // Create shader material for animated gradient
-  const material = useRef(
-    new THREE.ShaderMaterial({
+  const material = useMemo(() => new THREE.ShaderMaterial({
       uniforms: {
         u_time: { value: 0 },
         u_resolution: { value: new THREE.Vector2() },
@@ -80,14 +79,14 @@ function GradientBackground() {
           gl_FragColor = vec4(color, 1.0);
         }
       `,
-    })
-  );
+    }), []);
   
   // Update shader uniforms on each frame
   useFrame((state) => {
-    if (material.current) {
-      material.current.uniforms.u_time.value = state.clock.elapsedTime;
-      material.current.uniforms.u_resolution.value.set(
+    const shader = meshRef.current?.material as THREE.ShaderMaterial | undefined;
+    if (shader) {
+      shader.uniforms.u_time.value = state.clock.elapsedTime;
+      shader.uniforms.u_resolution.value.set(
         viewport.width, 
         viewport.height
       );
@@ -97,7 +96,7 @@ function GradientBackground() {
   return (
     <mesh ref={meshRef} position={[0, 0, -5]}>
       <planeGeometry args={[viewport.width * 2, viewport.height * 2]} />
-      <primitive object={material.current} attach="material" />
+      <primitive object={material} attach="material" />
     </mesh>
   );
 }
@@ -106,36 +105,15 @@ function GradientBackground() {
 function FloatingParticles({ count = 100 }) {
   const points = useRef<THREE.Points>(null);
   
-  // Create random particles
-  const particlesPosition = new Float32Array(count * 3);
-  const particlesSizes = new Float32Array(count);
-  
-  useEffect(() => {
+  const [particlesPosition, particlesSizes] = useMemo(() => {
+    const positions = new Float32Array(count * 3);
+    const sizes = new Float32Array(count);
     for (let i = 0; i < count; i++) {
-      const i3 = i * 3;
-      particlesPosition[i3] = (Math.random() - 0.5) * 10;
-      particlesPosition[i3 + 1] = (Math.random() - 0.5) * 10;
-      particlesPosition[i3 + 2] = (Math.random() - 0.5) * 10;
-      particlesSizes[i] = Math.random() * 0.1 + 0.05;
+      for (let j = 0; j < 3; j++) positions[i * 3 + j] = ((Math.sin((i * 3 + j + 1) * 12.9898) * 43758.5453 % 1)) * 10;
+      sizes[i] = 0.05 + (i % 10) / 100;
     }
+    return [positions, sizes];
   }, [count]);
-  
-  // Animate particles
-  useFrame((state) => {
-    if (!points.current) return;
-    
-    const positions = points.current.geometry.attributes.position.array as Float32Array;
-    const time = state.clock.elapsedTime;
-    
-    for (let i = 0; i < count; i++) {
-      const i3 = i * 3;
-      positions[i3 + 1] += Math.sin(time * 0.2 + i * 0.1) * 0.002;
-      positions[i3] += Math.cos(time * 0.2 + i * 0.1) * 0.002;
-    }
-    
-    points.current.geometry.attributes.position.needsUpdate = true;
-    points.current.rotation.y = time * 0.05;
-  });
   const geometryRef = useRef<THREE.BufferGeometry>(null);
 
   useEffect(() => {

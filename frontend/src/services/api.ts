@@ -1,257 +1,47 @@
 import axios from 'axios';
-import { getAccessToken } from '../lib/neon';
-
-// Base API URL configuration
-const API_URL = import.meta.env.VITE_API_BASE_URL || (import.meta.env.DEV ? 'http://localhost:8000' : 'https://intelliapply.onrender.com');
-
-// Configure axios defaults
-axios.defaults.baseURL = API_URL;
-
-// Create a new instance of axios to avoid interceptor duplication issues
-const axiosInstance = axios.create({
-  baseURL: API_URL
+import { clearLocalSession, getAccessToken, getSession } from '../lib/neon';
+import type { TaskStatus } from '../lib/tasks';
+const API_URL = import.meta.env.VITE_API_BASE_URL || '/';
+const api = axios.create({ baseURL: API_URL, timeout: 20000 });
+api.interceptors.request.use(config => {
+  const token = getAccessToken();
+  if (token) config.headers.Authorization = `Bearer ${token}`;
+  return config;
 });
-
-// Add a request interceptor to include the Neon Auth JWT in all requests
-axiosInstance.interceptors.request.use(
-  async (config) => {
-    try {
-      const token = getAccessToken();
-
-      if (token) {
-        config.headers['Authorization'] = `Bearer ${token}`;
-        console.log('[Interceptor] Added Neon Auth JWT to Authorization header.');
-      } else {
-        console.warn('[Interceptor] No active session token found, proceeding without token.');
-      }
-
-      console.log(`[Interceptor] Making ${config.method?.toUpperCase() || 'GET'} request to: ${config.url}`);
-      return config;
-
-    } catch (interceptorError) {
-      console.error('[Interceptor] Unexpected error within request interceptor:', interceptorError);
-      return Promise.reject(interceptorError);
+api.interceptors.response.use(response => response, async error => {
+  const original = error.config;
+  if (error.response?.status === 401 && original && !original._retry) {
+    original._retry = true;
+    const { data } = await getSession({ force: true });
+    if (data.session?.token) {
+      original.headers.Authorization = `Bearer ${data.session.token}`;
+      return api(original);
     }
-  },
-  (error) => {
-    console.error('[Interceptor] Error before request interceptor ran:', error);
-    return Promise.reject(error);
   }
-);
-
-axiosInstance.interceptors.response.use(
-  (response) => {
-    return response;
-  },
-  async (error) => {
-    const originalRequest = error.config;
-    if (error.response) {
-      // Log the error regardless
-      console.error(`API Error: Status ${error.response.status}`, error.response.data);
-
-      if (error.response.status === 401 && !originalRequest._retry) {
-        originalRequest._retry = true;
-        try {
-          console.log('[Interceptor] 401 received, attempting to refresh session...');
-          const { getSession } = await import('../lib/neon');
-          const { data } = await getSession();
-
-          if (data?.session?.token) {
-            console.log('[Interceptor] Session refreshed, retrying request...');
-            originalRequest.headers['Authorization'] = `Bearer ${data.session.token}`;
-            return axiosInstance(originalRequest);
-          }
-        } catch (refreshError) {
-          console.error('[Interceptor] Session refresh failed:', refreshError);
-        }
-      }
-
-      if (error.response.status === 401 || error.response.status === 403) {
-        console.error(`Authentication/Authorization error (${error.response.status}). The request was not successful.`);
-      } else if (error.response.status === 500) {
-        console.error('Server error (500):', error.response.data);
-      }
-      // For all errors with a response, we should reject so the UI can handle it.
-    } else if (error.request) {
-      // The request was made but no response was received (e.g., network error, backend down)
-      console.error('Network error or no response from server:', error.request);
-    } else {
-      // Something happened in setting up the request that triggered an Error
-      console.error('Error setting up API request:', error.message);
-    }
-    return Promise.reject(error); // Reject all errors to be handled by the calling function's catch block
-  }
-);
-
-export const authAPI = {};
-
-// Profile API
+  if (error.response?.status === 401) clearLocalSession();
+  return Promise.reject(error);
+});
+export interface Preferences { desired_roles?: string; desired_locations?: string; min_salary?: number; first_name?: string; last_name?: string; }
+export interface ExperienceInput { title: string; company: string; location?: string; start_date?: string; end_date?: string; description?: string; }
 export const profileAPI = {
-  getProfile: async () => {
-    console.log('[api.ts] profileAPI.getProfile called. Attempting axiosInstance.get("/api/profile")...');
-    try {
-      const response = await axiosInstance.get('/api/profile');
-      console.log('Profile data received:', response.data);
-      return response.data;
-    } catch (error) {
-      console.error('Error fetching profile:', error);
-      throw error;
-    }
-  },
-  updatePreferences: async (preferences: {
-    desired_roles?: string,
-    desired_locations?: string,
-    min_salary?: number,
-    email?: string,
-    first_name?: string,
-    last_name?: string
-  }) => {
-    console.log('[api.ts] Updating preferences via backend:', preferences);
-    try {
-      const { email, ...prefsToUpdate } = preferences;
-      if (email) console.warn("Attempted to update email via profile preferences, ignoring.");
-      const response = await axiosInstance.put('/api/profile/preferences', prefsToUpdate);
-      console.log('Update preferences response:', response.data);
-      return response.data;
-    } catch (error) {
-      console.error('Error updating preferences:', error);
-      throw error;
-    }
-  },
+  getProfile: async () => (await api.get('/api/profile')).data,
+  updatePreferences: async (values: Preferences) => (await api.put('/api/profile/preferences', values)).data,
   uploadResume: async (file: File) => {
-    console.log('[api.ts] Uploading resume to backend:', file.name);
-    try {
-      const formData = new FormData();
-      formData.append('file', file, file.name);
-      const response = await axiosInstance.post('/api/profile/resume', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
-      console.log('Upload resume response:', response.data);
-      return response.data;
-    } catch (error) {
-      console.error('Error uploading resume:', error);
-      throw error;
-    }
+    const body = new FormData(); body.append('file', file);
+    return (await api.post('/api/profile/resume', body)).data;
   },
-  addSkills: async (skills: Array<{ name: string, level?: string }>) => {
-    console.log('[api.ts] Adding skills via backend:', skills);
-    try {
-      const response = await axiosInstance.post('/api/profile/skills', skills);
-      console.log('Add skills response:', response.data);
-      return response.data;
-    } catch (error) {
-      console.error('Error adding skills:', error);
-      throw error;
-    }
-  },
-  deleteSkill: async (skillId: number) => {
-    console.log(`[api.ts] Deleting skill ${skillId} via backend...`);
-    try {
-      const response = await axiosInstance.delete(`/api/profile/skills/${skillId}`);
-      console.log('Delete skill response status:', response.status);
-      return response.status === 204;
-    } catch (error) {
-      console.error(`Error deleting skill ${skillId}:`, error);
-      throw error;
-    }
-  },
-  addExperiences: async (experiences: Array<{
-    title: string,
-    company: string,
-    location?: string,
-    start_date?: string,
-    end_date?: string,
-    description?: string
-  }>) => {
-    console.log('[api.ts] Adding experiences via backend:', experiences);
-    try {
-      const response = await axiosInstance.post('/api/profile/experiences', experiences);
-      console.log('Add experiences response:', response.data);
-      return response.data;
-    } catch (error) {
-      console.error('Error adding experiences:', error);
-      throw error;
-    }
-  },
-  deleteExperience: async (experienceId: number) => {
-    console.log(`[api.ts] Deleting experience ${experienceId} via backend...`);
-    try {
-      const response = await axiosInstance.delete(`/api/profile/experiences/${experienceId}`);
-      console.log('Delete experience response status:', response.status);
-      return response.status === 204;
-    } catch (error) {
-      console.error(`Error deleting experience ${experienceId}:`, error);
-      throw error;
-    }
-  },
-  deleteAllSkills: async () => {
-    console.log('[api.ts] Deleting all skills via backend...');
-    try {
-      const response = await axiosInstance.delete('/api/profile/skills/all');
-      console.log('Delete all skills response status:', response.status);
-      return response.status === 204;
-    } catch (error) {
-      console.error('Error deleting all skills:', error);
-      throw error;
-    }
-  }
+  getResumeStatus: async (id: string): Promise<TaskStatus> => (await api.get(`/api/profile/resume/status/${id}`)).data,
+  addSkills: async (skills: Array<{name: string; level?: string}>) => (await api.post('/api/profile/skills', skills)).data,
+  deleteSkill: async (id: number) => (await api.delete(`/api/profile/skills/${id}`)).status === 204,
+  deleteAllSkills: async () => (await api.delete('/api/profile/skills/all')).status === 204,
+  addExperiences: async (items: ExperienceInput[]) => (await api.post('/api/profile/experiences', items)).data,
+  updateExperience: async (id: number, values: ExperienceInput) => (await api.put(`/api/profile/experiences/${id}`, values)).data,
+  deleteExperience: async (id: number) => (await api.delete(`/api/profile/experiences/${id}`)).status === 204,
 };
-
-// Jobs API
 export const jobsAPI = {
-  getMatchedJobs: async () => {
-    console.log('[api.ts] Getting matched jobs from backend...');
-    try {
-      const response = await axiosInstance.get('/api/jobs/matched');
-      console.log('Matched jobs received:', response.data);
-      return response.data;
-    } catch (error) {
-      console.error('Error fetching matched jobs:', error);
-      throw error;
-    }
-  },
-  updateJobStatus: async (jobId: number, status: string) => {
-    console.log(`[api.ts] Updating job ${jobId} status to ${status} via backend...`);
-    try {
-      const response = await axiosInstance.put(`/api/jobs/${jobId}/status`, { status }); // Corrected endpoint
-      console.log('Update job status response:', response.data);
-      return response.data;
-    } catch (error) {
-      console.error(`Error updating job ${jobId} status:`, error);
-      throw error;
-    }
-  },
-  refreshJobs: async (): Promise<{ task_id: string; message: string }> => {
-    console.log('[api.ts] Requesting job refresh from backend...');
-    try {
-      const response = await axiosInstance.post('/api/jobs/refresh');
-      console.log('Refresh jobs response:', response.data);
-      return response.data;
-    } catch (error) {
-      console.error('Error refreshing jobs:', error);
-      throw error;
-    }
-  },
-  getRefreshStatus: async (taskId: string): Promise<{ task_id: string; status: string; message: string }> => {
-    console.log(`[api.ts] Getting refresh status for task ${taskId} from backend...`);
-    try {
-      const response = await axiosInstance.get(`/api/jobs/refresh/status/${taskId}`);
-      console.log('Refresh status received:', response.data);
-      return response.data;
-    } catch (error) {
-      console.error(`Error fetching refresh status for task ${taskId}:`, error);
-      throw error;
-    }
-  },
-  getJobCounts: async () => {
-    console.log('[api.ts] Getting job counts from backend...');
-    try {
-      const response = await axiosInstance.get('/api/jobs/counts');
-      console.log('Job counts received:', response.data);
-      return response.data;
-    } catch (error) {
-      console.error('Error fetching job counts:', error);
-      throw error;
-    }
-  }
+  getMatchedJobs: async () => (await api.get('/api/jobs/matched')).data,
+  getJobCounts: async () => (await api.get('/api/jobs/counts')).data,
+  updateJobStatus: async (id: number, status: string) => (await api.put(`/api/jobs/${id}/status`, { status })).data,
+  refreshJobs: async (): Promise<{task_id: string; message: string}> => (await api.post('/api/jobs/refresh')).data,
+  getRefreshStatus: async (id: string): Promise<TaskStatus> => (await api.get(`/api/jobs/refresh/status/${id}`)).data,
 };
