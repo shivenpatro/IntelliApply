@@ -1,6 +1,6 @@
 # IntelliApply remediation report
 
-Date: 2026-10-08. Changes are in the local `work` checkout, based on `2ea161540b22c85567f1c2f5c42632bbdf0db070`. Nothing in this remediation has been pushed, merged, deployed or run against production data.
+Updated: 2026-10-09 (Asia/Kolkata). The release is published in [PR #3](https://github.com/shivenpatro/IntelliApply/pull/3), based on `2ea161540b22c85567f1c2f5c42632bbdf0db070`. Vercel has created a frontend preview and the initial remote regression/advisory checks pass. The production branch has not been merged, the production database has not been migrated, and authenticated production acceptance remains incomplete. See [DEPLOYMENT_STATUS.md](DEPLOYMENT_STATUS.md) for current hosting/access evidence.
 
 The original audit recorded 37 failed expectations and 27 additional findings. The reproducible local defects have been addressed. Production account settings, hosting configuration, actual quotas and successful live integrations remain acceptance gates, rather than being marked fixed without evidence.
 
@@ -18,7 +18,7 @@ The original audit recorded 37 failed expectations and 27 additional findings. T
 
 | Check | Result | Scope |
 | --- | --- | --- |
-| Root `npm test` | **67 PostgreSQL/backend cases and 13 Chromium workflows passed** | 80 passing cases, no failures or skips. Backend parametrization contributes to the count; these are not 80 independent live integrations. |
+| Root `npm test` | **67 PostgreSQL/backend cases and 15 Chromium workflows passed** | 82 passing cases, no failures or skips. Backend parametrization contributes to the count; these are not 82 independent live integrations. |
 | Backend correctness lint | Passed | Flake8 undefined names/import correctness and syntax checks (`F,E9`). This is not a claim that every formatting rule was enforced. |
 | Frontend lint | Passed with zero warnings | Existing hook/refresh issues were corrected without globally suppressing the rules. |
 | TypeScript and production build | Passed | Runs as part of the browser test setup with explicit synthetic API/auth configuration. |
@@ -27,10 +27,10 @@ The original audit recorded 37 failed expectations and 27 additional findings. T
 | Frontend `npm audit` | **0 known vulnerabilities** | Full installed frontend tree, including development dependencies, at scan time. This does not cover the hosted auth service's implementation. |
 | Python `pip-audit` | **0 known vulnerabilities across 81 installed packages** | Includes development tools, using the PyPI advisory service. This is an advisory snapshot, not a guarantee of security. |
 | Local migration/startup | Passed | Development database retained its ten synthetic jobs and zero users/profiles/matches/tasks. No disposable test databases remained after verification. |
-| Local probes and Vite API proxy | Passed | `/health` and `/ready` returned 200; unauthenticated protected requests returned 401 directly and through the dev proxy. |
+| Local probes, Docker runtime and Vite API proxy | Passed | `/health` and `/ready` returned 200; unauthenticated protected requests returned 401. The built image imports the API at UID 10001 and passes health/readiness/auth-guard checks against the migrated local database. |
 | Cloud setup | Updated and exercised | Reusable installation/start instructions and required outbound destinations were saved in a configuration draft. A saved draft does not apply network changes or publish a deployment. |
 
-The full run is saved at `/workspace/intelliapply-audit-20261008/remediation-final-test.log`. Frontend/Python advisory evidence is in `remediation-npm-audit.json` and `remediation-python-audit.json` in the same directory. `remediation-final-results.json` records the final counts; `remediation-map.json` links the original findings to their dispositions. These paths are session artifacts, not portable repository dependencies. The permanent tests are [backend/tests](../backend/tests) and [frontend/tests/workflows.spec.ts](../frontend/tests/workflows.spec.ts); the runner is [scripts/test.mjs](../scripts/test.mjs).
+The original 80-case run and finding map are saved under `/workspace/intelliapply-audit-20261008/`. The expanded 82-case run is `/workspace/intelliapply-audit-20261009-release/release-test.log`; that directory also contains current packaging and live/public deployment evidence. The original frontend/Python advisory files are `remediation-npm-audit.json` and `remediation-python-audit.json`; remote Actions advisory checks have also passed for the published release. These paths are session artifacts, not portable repository dependencies. The permanent tests are [backend/tests](../backend/tests) and [frontend/tests/workflows.spec.ts](../frontend/tests/workflows.spec.ts); the runner is [scripts/test.mjs](../scripts/test.mjs).
 
 Browser tests use the actual built frontend with intercepted synthetic provider/API responses. Backend tests execute the real handlers, services and PostgreSQL transactions with generated signed identities. Model/source contract tests exercise the supported clients against mock HTTP responses. None of those tests establish actual email delivery, OAuth/cookies on Vercel, paid account authorization, production database health or remaining credits.
 
@@ -90,7 +90,7 @@ Backend evidence abbreviations:
 | --- | --- | --- |
 | 1 | Wrong password-reset provider route | Uses the SDK's supported request/reset operations. Browser request/body and expired-token handling pass. Real email → callback → changed-password login remains a staging gate. |
 | 2 | Database URL and personal profile/resume logging | Removed secret-bearing and content logging from the active source. Historical production exposure was not established; review existing logs and rotate a credential if exposure is confirmed. |
-| 3 | No production deployment/key/quota/DB visibility | Still externally unverified. The environment proxy denied deployment/API destinations; this does not imply the website is down. Required destinations were added to the cloud configuration draft. |
+| 3 | No production deployment/key/quota/DB visibility | Public Vercel/Render/Neon checks and authenticated GitHub reads now work. Backend hosting and baseline deployment are identified. Host-management credentials, real account access, actual quotas and database state remain unverified. The new preview hostname is blocked by this environment's proxy; access requirements/domains are saved in the cloud configuration draft. |
 | 4 | Status persistence confused with durable execution | Explicit interruption/deadline contract. Work executes in FastAPI background tasks; no queue, automatic replay or retained upload bytes is claimed. If automatic crash recovery becomes a product requirement, a worker queue and secure temporary file store are separate work. |
 | 5 | No cleanup or polling deadline | Terminal retention, task deadline, expired-work interruption and bounded cancellable browser polling implemented. W/R task and cleanup cases. |
 | 6 | Unsafe size/content and DOCX expansion | Bounded reads, PDF page/content checks and DOCX entry/decompressed-size/expansion limits implemented; invalid inputs fail before paid processing. W/R upload cases. |
@@ -112,8 +112,8 @@ Backend evidence abbreviations:
 | 22 | Deprecated Gemini / Lenis clients | Supported `google-genai` and `lenis` clients; structured request/429/malformed-output contracts and anchor behavior tested. |
 | 23 | Lint errors/warnings | Frontend lint now passes with zero warnings; backend correctness lint added. |
 | 24 | Development resolver conflict | Compatible requirements and reproducible hash locks; independent fresh installation succeeds. |
-| 25 | Large bundles / absent live performance data | Lazy route/3D loading and graceful optional decoration fallback. Mobile/reduced-motion tests prove the orb chunk is not requested. Core/Home/optional-orb chunks remain sizeable; staging performance measurement and further bundle work remain open. A smaller core chunk alone does not establish a faster total landing load. |
-| 26 | Placeholder test command / external-only suite | Permanent local suites, root runner and GitHub Actions workflow added. Local runner passes; the remote Actions workflow has not been executed here. |
+| 25 | Large bundles / absent live performance data | The active WebGL orb is replaced by a 2.7 KB Canvas2D chunk, with pausing/backing-store caps and no WebGL dependency. Mobile/reduced-motion tests prove it is not loaded. Core/Home chunks remain sizeable; real-device performance measurement and further bundle work remain open. Bundle reduction alone is not a live Web Vitals result. |
+| 26 | Placeholder test command / external-only suite | Permanent suites, root runner and GitHub Actions workflow added. Local 82-case suite and the published release's initial remote regression/advisory/Docker jobs pass. Preview access/browser diagnostics report their real outcome separately from mock-backed account workflows. |
 | 27 | Incomplete real auth/email/Google/model/DB journey | Still a staging acceptance gate. [RELEASE.md](RELEASE.md) gives the exact journey, required configuration and deployment/rollback order. |
 
 ## Current endpoint contract
@@ -139,6 +139,6 @@ The original 16 application operations remain represented by the regression suit
 - Admission: four active tasks, 60-second per-user refresh interval, 30-second per-user resume interval, ten seconds between global resume starts and a 15-minute shared source scrape interval. These are configurable application limits, **not measurements of provider RPM/TPM/RPD or credits**. Quota failures extend provider cooldowns.
 - Data: seven-day terminal task retention, 30-day untracked listing retention, preservation of tracked applications, latest 500 listings for matching. Constraints deliberately reject invalid writes; existing conflicting production rows require reviewed reconciliation before migration.
 - Authentication: require signature, subject, expiry and actual configured issuer; audience only when the real provider supplies a contract. The Neon browser SDK is pinned to a beta release and needs real staging cookie/OAuth/reset acceptance.
-- Operations: schedulers require a running host; database pools multiply across processes. Background work can be interrupted, and status persistence does not guarantee execution recovery. Optional 3D remains a large desktop download.
+- Operations: schedulers require a running host; database pools multiply across processes. Background work can be interrupted, and status persistence does not guarantee execution recovery. The Canvas2D decoration is small; the core/Home bundles still warrant real-device measurement.
 
 To establish that the resume URL is ready, obtain usable deployment access, verify actual deployed revisions and variables, rehearse the migration/restore in an isolated database, complete the real staging visitor journey and inspect provider quota/credit settings. Then deploy schema/backend before the frontend and run the deployed smoke checks. Those steps require actual environment bindings and release authorization; they were not silently substituted with mocks or performed on production during this remediation.

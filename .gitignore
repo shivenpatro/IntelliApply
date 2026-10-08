@@ -97,3 +97,7 @@ frontend/test-results/
 frontend/playwright-report/
 .pytest_cache/
 .mypy_cache/
+/preview-report.json
+/preview-browser-report.json
+/preview-desktop.png
+/preview-mobile.png
