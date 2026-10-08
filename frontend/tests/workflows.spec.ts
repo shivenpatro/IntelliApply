@@ -7,6 +7,7 @@ async function fixtures(page: Page, authenticated = false, mode = '') {
     const url = new URL(route.request().url());
     const headers = { 'Access-Control-Allow-Origin': 'http://127.0.0.1:4174', 'Access-Control-Allow-Credentials': 'true', 'Access-Control-Allow-Headers': 'content-type,authorization,x-neon-client-info', 'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS' };
     if (route.request().method() === 'OPTIONS') return route.fulfill({ status: 204, headers });
+    if (url.pathname === '/health') return route.fulfill({ json: { status: 'healthy' }, headers });
     if (url.hostname.includes('neonauth')) {
       if (url.pathname.endsWith('/sign-in/email')) {
         await new Promise(resolve => setTimeout(resolve, 1500));
@@ -34,6 +35,18 @@ test('password reset calls the supported provider route', async ({ page }) => {
   await page.getByRole('button', { name: /send reset/i }).click();
   expect((await request).postDataJSON().redirectTo).toBe('http://127.0.0.1:4174/update-password');
   await expect(page.getByText(/If an account exists/)).toBeVisible();
+});
+test('landing warms the backend once without sending an identity', async ({ page }) => {
+  await fixtures(page);
+  let calls = 0;
+  page.on('request', request => { if (new URL(request.url()).pathname === '/health') calls++; });
+  const health = page.waitForRequest(request => new URL(request.url()).pathname === '/health');
+  await page.goto('/');
+  const request = await health;
+  expect(request.method()).toBe('GET');
+  expect(await request.headerValue('authorization')).toBeNull();
+  await expect(page.getByRole('link', { name: 'Begin the search', exact: true })).toBeVisible();
+  expect(calls).toBe(1);
 });
 test('login remains disabled throughout a delayed provider request', async ({ page }) => {
   await fixtures(page); await page.goto('/login');
@@ -100,6 +113,40 @@ test('resume provider failure preserves the displayed profile and never claims s
   await expect(page.getByRole('alert')).toContainText('Provider quota exhausted');
   await expect(page.getByLabel('First Name')).toHaveValue('Audit');
   await expect(page.getByText(/processed successfully/i)).toHaveCount(0);
+});
+
+test('leaving profile cancels an outstanding task status request', async ({ page }) => {
+  await fixtures(page, true);
+  await page.addInitScript(() => {
+    const state = window as unknown as { cancelledStatusRequests: number };
+    state.cancelledStatusRequests = 0;
+    const urls = new WeakMap<XMLHttpRequest, string>();
+    const open = XMLHttpRequest.prototype.open, abort = XMLHttpRequest.prototype.abort;
+    XMLHttpRequest.prototype.open = function (...args: Parameters<typeof open>) {
+      urls.set(this, String(args[1]));
+      return open.apply(this, args);
+    } as typeof open;
+    XMLHttpRequest.prototype.abort = function () {
+      if (urls.get(this)?.endsWith('/resume/status/cancel-test')) state.cancelledStatusRequests++;
+      return abort.call(this);
+    };
+  });
+  let release!: () => void;
+  const delayed = new Promise<void>(resolve => { release = resolve; });
+  await page.route('**/api/profile/resume', route => route.fulfill({ status: 202, json: { task_id: 'cancel-test' } }));
+  await page.route('**/api/profile/resume/status/cancel-test', async route => {
+    await delayed;
+    await route.fulfill({ json: { task_id: 'cancel-test', status: 'running', message: 'Processing.' } }).catch(() => undefined);
+  });
+  await page.goto('/profile');
+  await page.getByLabel('Resume file').setInputFiles({ name: 'resume.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.7 fixture') });
+  const requested = page.waitForRequest(request => request.url().endsWith('/resume/status/cancel-test'));
+  await page.getByRole('button', { name: 'Upload & Parse Resume' }).click();
+  await requested;
+  await page.getByRole('link', { name: 'IntelliApply', exact: true }).click();
+  await expect.poll(() => page.evaluate(() => (window as unknown as { cancelledStatusRequests: number }).cancelledStatusRequests)).toBeGreaterThan(0);
+  release();
+  await expect(page).toHaveURL(/\/$/);
 });
 
 test('partial refresh stays visible and Retry-After disables additional refreshes', async ({ page }) => {

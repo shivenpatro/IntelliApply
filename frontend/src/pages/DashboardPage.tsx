@@ -69,7 +69,7 @@ const DashboardPage = () => {
       const response = await jobsAPI.refreshJobs();
       if (controller.signal.aborted) return;
       setCurrentTaskId(response.task_id);
-      const result = await waitForTask(() => jobsAPI.getRefreshStatus(response.task_id), controller.signal, setProgressMessage);
+      const result = await waitForTask(signal => jobsAPI.getRefreshStatus(response.task_id, signal), controller.signal, setProgressMessage);
       if (result.status === 'partial_failure') setError(result.message);
       else setRefreshStatusMessages([result.message]);
       await fetchJobsAndCounts();

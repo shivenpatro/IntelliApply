@@ -18,7 +18,7 @@ The original audit recorded 37 failed expectations and 27 additional findings. T
 
 | Check | Result | Scope |
 | --- | --- | --- |
-| Root `npm test` | **67 PostgreSQL/backend cases and 15 Chromium workflows passed** | 82 passing cases, no failures or skips. Backend parametrization contributes to the count; these are not 82 independent live integrations. |
+| Root `npm test` | **67 PostgreSQL/backend cases and 17 Chromium workflows passed** | 84 passing cases, no failures or skips. Backend parametrization contributes to the count; these are not 84 independent live integrations. |
 | Backend correctness lint | Passed | Flake8 undefined names/import correctness and syntax checks (`F,E9`). This is not a claim that every formatting rule was enforced. |
 | Frontend lint | Passed with zero warnings | Existing hook/refresh issues were corrected without globally suppressing the rules. |
 | TypeScript and production build | Passed | Runs as part of the browser test setup with explicit synthetic API/auth configuration. |
@@ -30,7 +30,7 @@ The original audit recorded 37 failed expectations and 27 additional findings. T
 | Local probes, Docker runtime and Vite API proxy | Passed | `/health` and `/ready` returned 200; unauthenticated protected requests returned 401. The built image imports the API at UID 10001 and passes health/readiness/auth-guard checks against the migrated local database. |
 | Cloud setup | Updated and exercised | Reusable installation/start instructions and required outbound destinations were saved in a configuration draft. A saved draft does not apply network changes or publish a deployment. |
 
-The original 80-case run and finding map are saved under `/workspace/intelliapply-audit-20261008/`. The expanded 82-case run is `/workspace/intelliapply-audit-20261009-release/release-test.log`; that directory also contains current packaging and live/public deployment evidence. The original frontend/Python advisory files are `remediation-npm-audit.json` and `remediation-python-audit.json`; remote Actions advisory checks have also passed for the published release. These paths are session artifacts, not portable repository dependencies. The permanent tests are [backend/tests](../backend/tests) and [frontend/tests/workflows.spec.ts](../frontend/tests/workflows.spec.ts); the runner is [scripts/test.mjs](../scripts/test.mjs).
+The original 80-case run and finding map are saved under `/workspace/intelliapply-audit-20261008/`. The expanded 83-case run is `/workspace/intelliapply-audit-20261009-release/release-test.log`; the latest 17-browser run is `final-frontend-test.log` in that directory, alongside packaging and live/public deployment evidence. The original frontend/Python advisory files are `remediation-npm-audit.json` and `remediation-python-audit.json`; remote Actions advisory checks have also passed for the published release. These paths are session artifacts, not portable repository dependencies. The permanent tests are [backend/tests](../backend/tests) and [frontend/tests/workflows.spec.ts](../frontend/tests/workflows.spec.ts); the runner is [scripts/test.mjs](../scripts/test.mjs).
 
 Browser tests use the actual built frontend with intercepted synthetic provider/API responses. Backend tests execute the real handlers, services and PostgreSQL transactions with generated signed identities. Model/source contract tests exercise the supported clients against mock HTTP responses. None of those tests establish actual email delivery, OAuth/cookies on Vercel, paid account authorization, production database health or remaining credits.
 
@@ -113,7 +113,7 @@ Backend evidence abbreviations:
 | 23 | Lint errors/warnings | Frontend lint now passes with zero warnings; backend correctness lint added. |
 | 24 | Development resolver conflict | Compatible requirements and reproducible hash locks; independent fresh installation succeeds. |
 | 25 | Large bundles / absent live performance data | The active WebGL orb is replaced by a 2.7 KB Canvas2D chunk, with pausing/backing-store caps and no WebGL dependency. Mobile/reduced-motion tests prove it is not loaded. Core/Home chunks remain sizeable; real-device performance measurement and further bundle work remain open. Bundle reduction alone is not a live Web Vitals result. |
-| 26 | Placeholder test command / external-only suite | Permanent suites, root runner and GitHub Actions workflow added. Local 82-case suite and the published release's initial remote regression/advisory/Docker jobs pass. Preview access/browser diagnostics report their real outcome separately from mock-backed account workflows. |
+| 26 | Placeholder test command / external-only suite | Permanent suites, root runner and GitHub Actions workflow added. 67 local backend cases and 17 local browser workflows and the published release's initial remote regression/advisory/Docker jobs pass. Preview access/browser diagnostics report their real outcome separately from mock-backed account workflows. |
 | 27 | Incomplete real auth/email/Google/model/DB journey | Still a staging acceptance gate. [RELEASE.md](RELEASE.md) gives the exact journey, required configuration and deployment/rollback order. |
 
 ## Current endpoint contract

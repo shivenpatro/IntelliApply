@@ -24,7 +24,7 @@ cd ..
 npm start
 ```
 
-On Windows, activate `backend\.venv\Scripts\activate` instead. Run migration commands from `backend`. `npm start` selects the local Python environment and starts both servers. Vite proxies `/api` to port 8000. Process environment variables override `backend/.env`. Secret environment files and uploaded resumes must never be committed. The reviewed `frontend/.env.production` contains only the two public service destinations confirmed from the deployed site; project environment variables override those values.
+On Windows, activate `backend\.venv\Scripts\activate` instead. Run migration commands from `backend`. `npm start` selects the local Python environment and starts both servers. Vite proxies `/api` and `/health` to port 8000. Process environment variables override `backend/.env`. Secret environment files and uploaded resumes must never be committed. The reviewed `frontend/.env.production` contains only the two public service destinations confirmed from the deployed site; project environment variables override those values.
 
 The public frontend variables are `VITE_API_BASE_URL` and `VITE_NEON_AUTH_URL`. A build requires both explicitly, either in the reviewed public production file or in host environment bindings. For local development `VITE_API_BASE_URL=/` uses Vite's proxy. Vercel serves the frontend; the existing API host is Render (`https://intelliapply.onrender.com`). The SPA fallback in `frontend/vercel.json` does not provide an API proxy. A same-origin production API requires an explicit API rewrite before that fallback. A staging backend/auth project must override the production defaults.
 
@@ -49,7 +49,7 @@ Individual checks: `backend/.venv/bin/python -m pytest` from `backend`; `npm run
 
 ## Operational behavior
 
-Refresh and resume processing return HTTP 202 with a task ID. PostgreSQL retains pending/running/completed/partial-failure/failed/interrupted status. The browser waits for an actual terminal result. Task state survives restarts; execution uses FastAPI background tasks. An interrupted upload requires another upload because resume bytes are not retained. Processing expires after 120 seconds by default; terminal status is retained for seven days.
+Refresh and resume processing return HTTP 202 with a task ID. PostgreSQL retains pending/running/completed/partial-failure/failed/interrupted status. The browser waits for an actual terminal result. Task state survives restarts; execution uses FastAPI background tasks. An interrupted upload requires another upload because resume bytes are not retained. Processing expires after 120 seconds by default; terminal status is retained for seven days. The browser cancels status requests on navigation or its three-minute overall deadline. One credential-free health warm-up on app mount helps a sleeping API start; ordinary API calls have a bounded 45-second timeout. These client measures do not guarantee hosting uptime.
 
 Admission is coordinated across processes using PostgreSQL locks. Defaults: four active tasks, 60 seconds between a user's refresh requests, 30 seconds between resume requests, ten seconds between provider-wide resume starts, and 15 minutes between source scrapes. Limits return 429 and `Retry-After`. Provider quota failures impose a further cooldown. These application limits do not measure or guarantee Gemini/Firecrawl account RPM, TPM, RPD or credits; tune them from the actual account dashboards.
 

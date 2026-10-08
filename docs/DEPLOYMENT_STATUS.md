@@ -29,7 +29,9 @@ Browser traffic passes through the cloud environment's proxy. Chromium was confi
 - Navigation anchors now resolve from other routes and account for the lazily mounted landing page.
 - The Dockerfile uses Python 3.12.14, hash-verified runtime dependencies, explicit runtime/migration source copies and a nonroot user. `.dockerignore` excludes local credentials, uploads, virtual environments and test files. Explicit copy permissions make the runtime readable even when workspace files are owner-only. The image builds, imports at UID 10001, serves health, and passes readiness/auth-guard checks against the migrated local database. The cloud build supplied the approved proxy's DNS/CA configuration; the initial GitHub runner also built and checked the image normally.
 - Node 24, npm install/build commands and the Vercel output directory are explicit. `frontend/.env.production` contains only the existing two public service URLs and can be overridden by host variables. Full staging must override them with isolated staging services.
-- Two additional browser regressions cover the Canvas fallback/reduced motion and navigation from another page. The full local suite passes **67 backend cases + 15 browser workflows**, plus lint/build. The production-default build also passes.
+- Four additional browser regressions cover the Canvas fallback/reduced motion, navigation from another page, anonymous backend warm-up and cancellation of outstanding status requests. The local checks pass **67 backend cases + 17 browser workflows**, plus lint/build. The production-default build also passes.
+
+The existing Render service also exceeded a 15-second read budget during a later probe, after previously successful responses. This is an observed latency/intermittency issue, not proof of a particular hosting plan or cause. The client now makes one cancellable, credential-free health warm-up on app mount, allows a bounded 45-second API request, and cancels in-flight status requests on navigation or the three-minute polling deadline. No periodic keepalive, automatic mutation retry or paid-provider request is introduced by the warm-up. Actual host logs, availability and cold-start behavior still require management access. The remaining framework favicon was replaced with the application's existing logo.
 
 ## Release state and remaining prerequisites
 
@@ -37,7 +39,7 @@ The published release branch is `fix/reliability-release-20261009` and its draft
 
 The cloud proxy denies the new preview hostname (CONNECT 403), including a request with elevated shell permissions. This is a network policy response, not a Vercel outage or an automatic approval rejection. The exact hostname and Render management endpoint, plus personal credential requirements, were saved in an environment configuration draft. Saving does not activate/publish that draft; review/save the settings and publish the environment to apply them.
 
-The GitHub Actions runner also reports the preview's actual accessibility and, if publicly served, runs anonymous Chromium route/layout checks without fixture responses or credentials. Its report explicitly distinguishes a served app from authentication protection, a network error or a not-yet-ready deployment. This diagnostic does not claim successful account login or a migrated backend.
+The GitHub Actions runner also reports the preview's actual accessibility and, if publicly served, runs anonymous Chromium route/layout checks without fixture responses or credentials. Its report is also published to the PR checks API and explicitly distinguishes a served app from authentication protection, a network error or a not-yet-ready deployment. This diagnostic does not claim successful account login or a migrated backend.
 
 The production branch has not been updated or merged during this preparation. Do not promote the frontend ahead of the database/backend: the new frontend needs the new task-status contract.
 

@@ -19,6 +19,10 @@ export default defineConfig(({ command, mode }) => {
   plugins: [react()],
   server: {
     proxy: {
+      '/health': {
+        target: 'http://localhost:8000',
+        changeOrigin: true,
+      },
       '/api': {
         target: 'http://localhost:8000',
         changeOrigin: true,

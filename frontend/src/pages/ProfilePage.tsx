@@ -96,7 +96,7 @@ const ProfilePage = () => {
       const accepted = await profileAPI.uploadResume(file);
       if (controller.signal.aborted) return;
       if (!accepted.task_id) throw new Error('The backend must be updated before resume processing can be verified.');
-      const result = await waitForTask(() => profileAPI.getResumeStatus(accepted.task_id), controller.signal, setUploadProgress);
+      const result = await waitForTask(signal => profileAPI.getResumeStatus(accepted.task_id, signal), controller.signal, setUploadProgress);
       if (result.status !== 'completed') throw new Error(result.message);
       const updated = await profileAPI.getProfile();
       if (controller.signal.aborted) return;

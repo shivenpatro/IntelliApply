@@ -3,6 +3,7 @@
 import json
 import os
 import re
+import sys
 import time
 from pathlib import Path
 from urllib.error import HTTPError, URLError
@@ -10,13 +11,15 @@ from urllib.parse import urlencode, urlsplit
 from urllib.request import Request, urlopen
 
 
-def github(path):
+def github(path, body=None):
     request = Request(
         "https://api.github.com" + path,
         headers={
             "Authorization": "Bearer " + os.environ["GITHUB_TOKEN"],
             "Accept": "application/vnd.github+json",
+            "Content-Type": "application/json",
         },
+        data=json.dumps(body).encode() if body is not None else None,
     )
     with urlopen(request, timeout=15) as response:
         return json.load(response)
@@ -48,8 +51,9 @@ def report():
                     with urlopen(request, timeout=20) as response:
                         body = response.read(1024 * 1024).decode(errors="replace")
                         serves_app = 'id="root"' in body and "/assets/" in body
+                        protected = "Authentication Required" in body or urlsplit(response.url).hostname == "vercel.com"
                         return {"url": url, "http_status": response.status,
-                                "status": "app_served" if serves_app else "unexpected_page"}
+                                "status": "app_served" if serves_app else "authentication_required" if protected else "unexpected_page"}
                 except HTTPError as error:
                     return {"url": url, "http_status": error.code,
                             "status": "authentication_required" if error.code in (401, 403) else "http_error"}
@@ -60,7 +64,31 @@ def report():
     return {"status": "preview_not_ready"}
 
 
+def publish_check(result, browser=False):
+    if os.getenv("GITHUB_ACTIONS") != "true":
+        return
+    passed = result["status"] == ("passed" if browser else "app_served")
+    conclusion = "success" if passed else "failure" if result["status"] == "failed" else "neutral"
+    try:
+        github(f"/repos/{os.environ['GITHUB_REPOSITORY']}/check-runs", {
+            "name": "Preview browser smoke" if browser else "Preview HTTP access",
+            "head_sha": os.environ["RELEASE_SHA"],
+            "status": "completed",
+            "conclusion": conclusion,
+            "output": {
+                "title": result["status"],
+                "summary": "```json\n" + json.dumps(result, indent=2) + "\n```",
+            },
+        })
+    except HTTPError as error:
+        # Fork tokens may be read-only; retain the artifact/report either way.
+        print(json.dumps({"check_publication": "unavailable", "http_status": error.code}))
+
+
 if __name__ == "__main__":
-    result = report()
-    Path("preview-report.json").write_text(json.dumps(result, indent=2) + "\n")
+    browser = "--browser" in sys.argv
+    result = json.loads(Path("preview-browser-report.json").read_text()) if browser else report()
+    if not browser:
+        Path("preview-report.json").write_text(json.dumps(result, indent=2) + "\n")
     print(json.dumps(result))
+    publish_check(result, browser)

@@ -3,6 +3,7 @@ on: [push, pull_request]
 permissions:
   contents: read
   deployments: read
+  checks: write
 jobs:
   regression:
     runs-on: ubuntu-latest
@@ -47,6 +48,12 @@ jobs:
       - name: Check anonymous preview routes in Chromium
         if: github.ref != 'refs/heads/main'
         run: node scripts/preview-browser.mjs
+      - name: Publish preview browser result
+        if: always() && github.ref != 'refs/heads/main'
+        run: python scripts/preview_report.py --browser
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          RELEASE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
       - uses: actions/upload-artifact@v4
         if: always() && github.ref != 'refs/heads/main'
         with:

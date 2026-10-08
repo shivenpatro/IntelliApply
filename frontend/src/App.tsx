@@ -1,10 +1,11 @@
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 
 // Layout components
 import Navbar from './components/common/Navbar';
 import Footer from './components/common/Footer';
 import { useLenisScroll } from './hooks/useLenisScroll';
+import { warmBackend } from './lib/backend';
 
 // Page components
 const HomePage = lazy(() => import('./pages/HomePage'));
@@ -41,6 +42,12 @@ function AppContent() {
   const location = useLocation();
   const returnTo = ['/profile', '/dashboard'].includes(location.state?.from) ? location.state.from : '/dashboard';
   useLenisScroll();
+  useEffect(() => {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 60000);
+    void warmBackend(controller.signal).finally(() => clearTimeout(timer));
+    return () => { clearTimeout(timer); controller.abort(); };
+  }, []);
 
   return (
     <div className="flex flex-col min-h-screen">
