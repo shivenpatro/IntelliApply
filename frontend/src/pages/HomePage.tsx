@@ -1,11 +1,11 @@
-import { lazy, Suspense, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/auth';
 import TextReveal from '../components/motion/TextReveal';
 import MagneticButton from '../components/motion/MagneticButton';
 import ParallaxImage from '../components/motion/ParallaxImage';
 
-const MatchOrb = lazy(() => import('../components/three/MatchOrb'));
+import DecorativeOrb from '../components/common/DecorativeOrb';
 
 /* ── Inline SVG icons ── */
 const ArrowRightIcon = () => (
@@ -78,23 +78,23 @@ const PROCESS_ROWS = [
     titleLine1: 'Your skills,',
     titleLine2: 'extracted.',
     eyebrow: 'Resume Intelligence',
-    body: 'Upload once. Our parser builds a living profile — skills, experience depth, seniority — and matches by meaning, not keywords.',
+    body: 'Upload a PDF or DOCX to extract your skills and work experience. Review the results and edit your profile before searching.',
     link: { to: '/register', label: 'Learn more' },
   },
   {
     index: '02',
     titleLine1: 'Jobs found,',
-    titleLine2: 'while you sleep.',
-    eyebrow: 'Automated Discovery',
-    body: 'A scraping engine watches HackerNews, WeWorkRemotely and more. New listings arrive de-duplicated, ranked, and ready.',
+    titleLine2: 'in one place.',
+    eyebrow: 'Job Discovery',
+    body: 'Refresh listings from Hacker News. WeWorkRemotely is also supported when enabled. Duplicate links are combined before ranking.',
     link: { to: '/register', label: 'Learn more' },
   },
   {
     index: '03',
-    titleLine1: 'Real fit,',
-    titleLine2: 'not just keywords.',
-    eyebrow: 'AI Matching',
-    body: 'TF-IDF vectors + cosine similarity understand context and weigh experience depth to surface true compatibility.',
+    titleLine1: 'Your profile,',
+    titleLine2: 'your shortlist.',
+    eyebrow: 'Profile Matching',
+    body: 'Listings are ranked by text similarity to your skills, work experience and preferences. Scores help you compare roles; they do not predict hiring outcomes.',
     link: { to: '/register', label: 'Learn more' },
   },
 ];
@@ -137,7 +137,7 @@ const FeedVisual = () => (
       gap: 8,
     }}>
       <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--accent)', animation: 'messageFadeInOut 2s infinite' }} />
-      Live job feed
+      Example job feed
     </div>
     {[
       { dot: '', title: 'Senior Frontend Engineer', company: 'Stripe · Remote', time: '2m' },
@@ -163,14 +163,14 @@ const GaugeVisual = () => (
     <div className="gauge-ring">
       <div className="gauge-ring-inner">
         <div className="gauge-score">94%</div>
-        <div className="gauge-label-text">match score</div>
+        <div className="gauge-label-text">example score</div>
       </div>
     </div>
     <div style={{ display: 'flex', justifyContent: 'center', gap: 'var(--space-5)' }}>
       {[
-        { label: 'Skills', score: '97%' },
-        { label: 'Experience', score: '91%' },
-        { label: 'Culture', score: '88%' },
+        { label: 'Skills', score: 'Resume' },
+        { label: 'Experience', score: 'Profile' },
+        { label: 'Roles', score: 'Preferences' },
       ].map((item) => (
         <div key={item.label} style={{ textAlign: 'center' }}>
           <div style={{ fontFamily: "'Playfair Display', serif", fontSize: '18px', color: 'var(--accent)' }}>{item.score}</div>
@@ -184,10 +184,10 @@ const GaugeVisual = () => (
 const HomePage = () => {
   const { isAuthenticated } = useAuth();
 
-  const c1 = useCountUp('12K+');
-  const c2 = useCountUp('2.4M');
-  const c3 = useCountUp('94%');
-  const c4 = useCountUp('3.2×');
+  const { count: count1, ref: countRef1 } = useCountUp('2');
+  const { count: count2, ref: countRef2 } = useCountUp('4');
+  const { count: count3, ref: countRef3 } = useCountUp('3');
+  const { count: count4, ref: countRef4 } = useCountUp('5 MiB');
 
   /* visibility observer for .reveal / .reveal-stagger classes (fade-up fallback) */
   const ioRef = useRef<IntersectionObserver | null>(null);
@@ -203,6 +203,10 @@ const HomePage = () => {
     );
     const els = document.querySelectorAll('.reveal, .reveal-stagger');
     els.forEach((el) => ioRef.current?.observe(el));
+    // The lazy page may mount after the browser's initial fragment lookup.
+    const target = ['#process', '#features'].includes(window.location.hash)
+      ? document.querySelector(window.location.hash) : null;
+    target?.scrollIntoView();
     return () => ioRef.current?.disconnect();
   }, []);
 
@@ -212,9 +216,7 @@ const HomePage = () => {
       {/* ════════════ HERO ════════════ */}
       <section className="hero bg-grid">
         <div className="hero-orb-stage" aria-hidden="true">
-          <Suspense fallback={null}>
-            <MatchOrb />
-          </Suspense>
+          <DecorativeOrb />
         </div>
 
         <div style={{ position: 'relative', zIndex: 1 }}>
@@ -232,7 +234,7 @@ const HomePage = () => {
           </h1>
 
           <p className="text-body-lg reveal" style={{ maxWidth: 520, marginBottom: 'var(--space-7)' }}>
-            Stop wasting hours on job boards. IntelliApply matches you to roles that actually fit — based on your real skills, experience, and intent.
+            Build your profile, discover listings and track your applications. IntelliApply ranks roles using your skills, work experience and preferences.
           </p>
 
           <div className="reveal" style={{ display: 'flex', gap: 'var(--space-3)', flexWrap: 'wrap', alignItems: 'center' }}>
@@ -245,22 +247,22 @@ const HomePage = () => {
                 <MagneticButton>
                   <Link to="/register" className="btn btn-primary btn-lg">Begin the search <ArrowRightIcon /></Link>
                 </MagneticButton>
-                <Link to="#process" className="btn btn-secondary btn-lg">See the method</Link>
+                <a href="#process" className="btn btn-secondary btn-lg">See the method</a>
               </>
             )}
           </div>
 
           <div className="reveal" style={{ display: 'flex', gap: 'var(--space-6)', marginTop: 'var(--space-7)', paddingTop: 'var(--space-6)', borderTop: '1px solid var(--border-subtle)', maxWidth: 520 }}>
-            <div className="stat-chip">12,000+ seekers</div>
-            <div className="stat-chip" style={{ animationDelay: '-2s' }}>2.4M jobs scanned</div>
-            <div className="stat-chip" style={{ animationDelay: '-4s' }}>94% match accuracy</div>
+            <div className="stat-chip">PDF &amp; DOCX</div>
+            <div className="stat-chip" style={{ animationDelay: '-2s' }}>Application tracking</div>
+            <div className="stat-chip" style={{ animationDelay: '-4s' }}>Profile matching</div>
           </div>
         </div>
 
         {/* Right column — editorial resume card */}
         <div className="hero-visual" style={{ position: 'relative', zIndex: 1 }}>
           <div className="card" style={{ padding: 'var(--space-7)', maxWidth: 420, marginLeft: 'auto' }}>
-            <div className="eyebrow-rule" style={{ marginBottom: 'var(--space-5)' }}>Match Score</div>
+            <div className="eyebrow-rule" style={{ marginBottom: 'var(--space-5)' }}>Example recommendation</div>
             <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 72, lineHeight: 1, color: 'var(--accent)', marginBottom: 'var(--space-5)' }}>94</div>
 
             <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 16 }}>
@@ -286,7 +288,7 @@ const HomePage = () => {
             </div>
 
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'var(--text-muted)', marginBottom: 6, fontFamily: "'IBM Plex Mono', monospace", letterSpacing: '0.10em', textTransform: 'uppercase' }}>
-              <span>Profile fit</span><span style={{ color: 'var(--accent)' }}>94%</span>
+              <span>Similarity score</span><span style={{ color: 'var(--accent)' }}>94%</span>
             </div>
             <div style={{ background: 'var(--bg-subtle)', borderRadius: 0, height: 2, overflow: 'hidden' }}>
               <div style={{ width: '94%', height: '100%', background: 'var(--accent)' }} />
@@ -294,12 +296,12 @@ const HomePage = () => {
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginTop: 20, paddingTop: 20, borderTop: '1px solid var(--border-subtle)' }}>
               {[
-                { label: 'Skills', score: '97%' },
-                { label: 'Exp.', score: '91%' },
-                { label: 'Culture', score: '88%' },
+                { label: 'Skills', score: 'Resume' },
+                { label: 'Experience', score: 'Profile' },
+                { label: 'Roles', score: 'Preferences' },
               ].map((s) => (
                 <div key={s.label} style={{ textAlign: 'center' }}>
-                  <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 20, color: 'var(--text-primary)' }}>{s.score}</div>
+                  <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 16, color: 'var(--text-primary)' }}>{s.score}</div>
                   <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--text-muted)' }}>{s.label}</div>
                 </div>
               ))}
@@ -308,10 +310,10 @@ const HomePage = () => {
 
           <div className="stat-chip" style={{ position: 'absolute', top: -14, right: 20 }}>
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.3-4.3"/></svg>
-            1,240 jobs scanned
+            Preview your shortlist
           </div>
           <div className="stat-chip" style={{ position: 'absolute', bottom: 32, left: -20, animationDelay: '-3s' }}>
-            Updated 2 min ago
+            Illustrative example
           </div>
         </div>
 
@@ -332,21 +334,21 @@ const HomePage = () => {
         </div>
 
         <div className="stats-strip reveal-stagger">
-          <div className="stat-item" ref={c1.ref}>
-            <div className="stat-number">{c1.count}</div>
-            <div className="stat-label">Active job seekers</div>
+          <div className="stat-item" ref={countRef1}>
+            <div className="stat-number">{count1}</div>
+            <div className="stat-label">Resume formats</div>
           </div>
-          <div className="stat-item" ref={c2.ref}>
-            <div className="stat-number">{c2.count}</div>
-            <div className="stat-label">Jobs scanned weekly</div>
+          <div className="stat-item" ref={countRef2}>
+            <div className="stat-number">{count2}</div>
+            <div className="stat-label">Application states</div>
           </div>
-          <div className="stat-item" ref={c3.ref}>
-            <div className="stat-number">{c3.count}</div>
-            <div className="stat-label">Match accuracy</div>
+          <div className="stat-item" ref={countRef3}>
+            <div className="stat-number">{count3}</div>
+            <div className="stat-label">Profile sections</div>
           </div>
-          <div className="stat-item" ref={c4.ref}>
-            <div className="stat-number">{c4.count}</div>
-            <div className="stat-label">Faster than manual</div>
+          <div className="stat-item" ref={countRef4}>
+            <div className="stat-number">{count4}</div>
+            <div className="stat-label">Upload limit</div>
           </div>
         </div>
       </section>
@@ -395,16 +397,16 @@ const HomePage = () => {
       </section>
 
       {/* ════════════ HOW IT WORKS (number cards) ════════════ */}
-      <section className="how-section">
+      <section id="features" className="how-section">
         <div style={{ maxWidth: 1320, margin: '0 auto' }}>
           <div className="eyebrow-rule reveal" style={{ marginBottom: 'var(--space-6)' }}>№ 004 — Three steps</div>
           <h2 className="text-h1 reveal" style={{ marginBottom: 'var(--space-8)' }}>From resume to <em className="text-accent">results.</em></h2>
 
           <div className="steps-row reveal-stagger">
             {[
-              { n: '01', Icon: DocumentIcon, title: 'Upload Your Resume', desc: 'Drop your PDF or paste text. We parse it and build your living profile in seconds.' },
-              { n: '02', Icon: SearchIcon, title: 'Set Your Preferences', desc: 'Choose roles, locations, salary range, remote intent. Tell us what you want.' },
-              { n: '03', Icon: SparklesIcon, title: 'Get Matched Daily', desc: 'Wake to a curated shortlist ranked by fit. Apply with confidence, not noise.' },
+              { n: '01', Icon: DocumentIcon, title: 'Upload Your Resume', desc: 'Choose a PDF or DOCX up to 5 MiB. Wait for processing to finish, then review the extracted profile.' },
+              { n: '02', Icon: SearchIcon, title: 'Set Your Preferences', desc: 'Add desired roles and locations, then edit your skills and work experience. Location helps ranking rather than restricting results.' },
+              { n: '03', Icon: SparklesIcon, title: 'Review Your Matches', desc: 'Refresh your shortlist, inspect the original listings and track roles as interested, applied or ignored.' },
             ].map((item) => (
               <div key={item.n} className="step-card">
                 <div className="step-number">{item.n}</div>
@@ -428,7 +430,7 @@ const HomePage = () => {
           </TextReveal>
           <div className="reveal" style={{ display: 'flex', gap: 'var(--space-4)', flexWrap: 'wrap', marginBottom: 'var(--space-9)' }}>
             <MagneticButton>
-              <Link to="/register" className="btn btn-primary btn-lg" style={{ padding: '16px 36px', fontSize: 15 }}>
+                <Link to={isAuthenticated ? '/dashboard' : '/register'} className="btn btn-primary btn-lg" style={{ padding: '16px 36px', fontSize: 15 }}>
                 {isAuthenticated ? 'Go to Dashboard' : 'Create your profile'} <ArrowRightIcon />
               </Link>
             </MagneticButton>
@@ -443,7 +445,7 @@ const HomePage = () => {
           <div className="marquee-row" aria-hidden="true">
             <div className="marquee-track">
               {Array.from({ length: 2 }).flatMap((_, dup) =>
-                ['HIRED AT STRIPE', 'MATCH SCORE 98', 'FOUND IN 3 WEEKS', '12,400 SEEKERS', 'PARSED WITH PRECISION', 'REMOTE FIRST'].map((t) => (
+                ['PDF & DOCX', 'PROFILE MATCHING', 'APPLICATION TRACKING', 'EDITABLE EXPERIENCE', 'ORIGINAL JOB LINKS', 'LOCATION PREFERENCES'].map((t) => (
                   <span key={`${dup}-${t}`} className="marquee-item">{t}</span>
                 ))
               )}

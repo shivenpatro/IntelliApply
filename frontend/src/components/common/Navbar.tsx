@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
-import { useAuth } from '../../context/AuthContext';
+import { useAuth } from '../../context/auth';
 
 const IntelliApplyLogo = () => (
   <svg width="22" height="22" viewBox="0 0 40 40" fill="none" aria-hidden="true">
@@ -72,8 +72,8 @@ const Navbar = () => {
           </>
         ) : (
           <>
-            <a href="#process" className="nav-link btn-ghost" style={linkStyle(false)}>Process</a>
-            <a href="#features" className="nav-link btn-ghost" style={linkStyle(false)}>Method</a>
+            <a href="/#process" className="nav-link btn-ghost" style={linkStyle(false)}>Process</a>
+            <a href="/#features" className="nav-link btn-ghost" style={linkStyle(false)}>Method</a>
           </>
         )}
       </div>

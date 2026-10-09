@@ -1,127 +1,111 @@
-from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
-from typing import List, Dict
-import uuid # For generating task IDs
-import logging # For logging
 
-from app.core.schemas import JobWithMatch, UserJobMatchUpdate
 from app.core.neon_auth import get_current_active_user
+from app.core.schemas import JobWithMatch, UserJobMatchUpdate
 from app.db.database import get_db
-from app.db.models import User, Job, UserJobMatch, JobStatus
-from app.services.job_scraper import trigger_job_scraping # This will need to accept task_id and update status
-from app.services.job_matcher import match_jobs_for_user # This will also need task_id and update status
-
-logger = logging.getLogger(__name__)
+from app.db.models import Job, JobStatus, UserJobMatch
+from app.services.job_matcher import match_jobs_for_user
+from app.services.job_scraper import trigger_job_scraping
+from app.services.tasks import admit, read_task, run_task
 
 router = APIRouter()
 
-# In-memory store for task statuses. For production, use Redis or a DB table.
-task_statuses: Dict[str, Dict[str, str]] = {}
 
-@router.get("/matched", response_model=List[JobWithMatch])
-async def get_matched_jobs(current_user: User = Depends(get_current_active_user), db: Session = Depends(get_db)):
-    try:
-        # Get all jobs with their match data for the current user
-        matches = db.query(
-            Job, UserJobMatch.relevance_score, UserJobMatch.status
-        ).join(
-            UserJobMatch, Job.id == UserJobMatch.job_id
-        ).filter(
-            UserJobMatch.user_id == current_user.supabase_id # Filter by Supabase UUID
-        ).order_by(
-            UserJobMatch.relevance_score.desc()
-        ).all()
+def visible():
+    return or_(UserJobMatch.is_current.is_(True), UserJobMatch.status != "pending")
 
-        # Format response
-        result = []
-        for job, relevance_score, status in matches:
-            # Convert SQLAlchemy model to dict and add relevance score and status
-            job_dict = {c.name: getattr(job, c.name) for c in job.__table__.columns}
-            job_dict["relevance_score"] = float(relevance_score) if relevance_score is not None else 0.0
-            job_dict["status"] = status # Status is now a plain string from the DB
-            result.append(job_dict)
 
-        print(f"Returning {len(result)} matched jobs for user {current_user.supabase_id}")
-        return result
-    except Exception as e:
-        print(f"Error in get_matched_jobs: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to retrieve matched jobs: {str(e)}"
-        )
+@router.get("/matched", response_model=list[JobWithMatch])
+def get_matched_jobs(
+    user=Depends(get_current_active_user), db: Session = Depends(get_db)
+):
+    rows = (
+        db.query(Job, UserJobMatch)
+        .join(UserJobMatch, Job.id == UserJobMatch.job_id)
+        .filter(UserJobMatch.user_id == user.supabase_id, visible())
+        .order_by(UserJobMatch.is_current.desc(), UserJobMatch.relevance_score.desc())
+        .all()
+    )
+    return [
+        {
+            **{c.name: getattr(job, c.name) for c in Job.__table__.columns},
+            "relevance_score": match.relevance_score or 0,
+            "status": match.status,
+            "is_current": match.is_current,
+        }
+        for job, match in rows
+    ]
 
-@router.put("/{job_id}/status", response_model=dict)
-async def update_job_status(
+
+@router.put("/{job_id}/status")
+def update_job_status(
     job_id: int,
     status_update: UserJobMatchUpdate,
-    current_user: User = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
+    user=Depends(get_current_active_user),
+    db: Session = Depends(get_db),
 ):
-    # Find the user-job match using supabase_id
-    match = db.query(UserJobMatch).filter(
-        UserJobMatch.user_id == current_user.supabase_id,
-        UserJobMatch.job_id == job_id
-    ).first()
-
+    match = (
+        db.query(UserJobMatch)
+        .filter_by(user_id=user.supabase_id, job_id=job_id)
+        .first()
+    )
     if not match:
-        raise HTTPException(status_code=404, detail="Job match not found")
-
-    # Update status (status_update.status should be 'pending', 'interested', etc.)
-    match.status = status_update.status
+        raise HTTPException(404, "Job match not found.")
+    match.status = status_update.status.value
     db.commit()
-
     return {"success": True}
 
-    return {"success": True}
 
-async def perform_job_refresh(user_id: str, task_id: str, task_statuses_ref: dict):
-    try:
-        # Run scraper first
-        await trigger_job_scraping(task_id=task_id, task_statuses_ref=task_statuses_ref)
-        # Verify scraping didn't explicitly fail
-        if task_statuses_ref.get(task_id, {}).get("status") == "failed":
-            return
-        # Run matcher for this specific user
-        await match_jobs_for_user(user_id=user_id, task_id=task_id, task_statuses_ref=task_statuses_ref)
-    except Exception as e:
-        logger.error(f"Error in perform_job_refresh: {e}")
-        task_statuses_ref[task_id] = {"status": "failed", "message": f"An unexpected error occurred: {str(e)}"}
+async def perform_job_refresh(user_id):
+    scraping = await trigger_job_scraping()
+    _, message = await match_jobs_for_user(user_id)
+    if scraping["status"] != "completed":
+        return "partial_failure", scraping["message"] + " " + message
+    return "completed", scraping["message"] + " " + message
 
-@router.post("/refresh", status_code=status.HTTP_202_ACCEPTED, response_model=Dict[str, str])
-async def refresh_jobs_and_matches_api(background_tasks: BackgroundTasks, current_user: User = Depends(get_current_active_user)):
-    task_id = uuid.uuid4().hex
-    task_statuses[task_id] = {"status": "pending", "message": "Job refresh process initiated."}
-    
-    logger.info(f"User {current_user.email} triggered job refresh. Task ID: {task_id}")
 
-    # Use orchestrator to run sequentially
-    background_tasks.add_task(perform_job_refresh, user_id=current_user.supabase_id, task_id=task_id, task_statuses_ref=task_statuses)
+@router.post("/refresh", status_code=202)
+def refresh_jobs(
+    background_tasks: BackgroundTasks,
+    user=Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+):
+    task, created = admit(db, user.supabase_id, "refresh")
+    task_id = task.id
+    db.commit()
+    if created:
+        background_tasks.add_task(
+            run_task, task_id, perform_job_refresh, user.supabase_id
+        )
+    return {
+        "task_id": task_id,
+        "message": (
+            "Job refresh started."
+            if created
+            else "Your existing refresh is still processing."
+        ),
+    }
 
-    return {"task_id": task_id, "message": "Job refresh process started. Poll status endpoint for updates."}
 
-@router.get("/refresh/status/{task_id}", response_model=Dict[str, str])
-async def get_refresh_status(task_id: str):
-    status_info = task_statuses.get(task_id)
-    if not status_info:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Task ID not found.")
-    
-    # Optional: Clean up old tasks after some time or if status is 'completed'/'failed'
-    # For simplicity, not adding cleanup logic here yet.
-    return {"task_id": task_id, **status_info}
+@router.get("/refresh/status/{task_id}")
+def get_refresh_status(
+    task_id: str, user=Depends(get_current_active_user), db: Session = Depends(get_db)
+):
+    return read_task(db, task_id, user.supabase_id, "refresh")
 
-@router.get("/counts", response_model=dict) # Changed path to /counts (plural)
-async def get_job_count(current_user: User = Depends(get_current_active_user), db: Session = Depends(get_db)):
-    # Count jobs by status using supabase_id and string status values
-    counts = {}
-    # Use the string values directly for querying
-    for status_value in [s.value for s in JobStatus]:
-        count = db.query(UserJobMatch).filter(
-            UserJobMatch.user_id == current_user.supabase_id,
-            UserJobMatch.status == status_value
-        ).count()
-        counts[status_value] = count
 
-    # Get total count
-    total = sum(counts.values())
-
-    return {"total": total, "by_status": counts}
+@router.get("/counts")
+def get_counts(user=Depends(get_current_active_user), db: Session = Depends(get_db)):
+    counts = {
+        status.value: db.query(UserJobMatch)
+        .filter(
+            UserJobMatch.user_id == user.supabase_id,
+            visible(),
+            UserJobMatch.status == status.value,
+        )
+        .count()
+        for status in JobStatus
+    }
+    return {"total": sum(counts.values()), "by_status": counts}

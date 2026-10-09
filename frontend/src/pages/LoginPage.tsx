@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
+import { errorMessage } from '../lib/errors';
+import { useState, useEffect, useRef } from 'react';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { useAuth } from '../context/auth';
 import { useLoadingState } from '../hooks/useLoadingState';
 
 const IntelliApplyLogo = () => (
@@ -14,8 +15,11 @@ const LoginPage = () => {
   const [password, setPassword] = useState('');
   const [loginError, setLoginError] = useState<string | null>(null);
   const { login, loginWithGoogle, error: authContextError, clearError } = useAuth();
-  const [loading, setLoading, resetLoading] = useLoadingState(false, 15000);
+  const [loading, setLoading, resetLoading] = useLoadingState(false);
   const navigate = useNavigate();
+  const location = useLocation();
+  const mounted = useRef(true);
+  useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
 
   useEffect(() => () => resetLoading(), [resetLoading]);
 
@@ -24,13 +28,12 @@ const LoginPage = () => {
     setLoginError(null);
     setLoading(true);
     try {
-      const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Login request timed out')), 10000));
-      await Promise.race([login(email, password), timeoutPromise]);
-      navigate('/dashboard');
-    } catch (err: any) {
-      if (err.message?.includes('timed out')) setLoginError('Login request timed out. Please try again later.');
-      else if (err.message?.includes('Too many requests')) setLoginError('Too many login attempts. Please wait a moment and try again.');
-      else setLoginError(err.message || 'Failed to log in. Please check your credentials.');
+      await login(email, password);
+      if (mounted.current) navigate(['/profile', '/dashboard'].includes(location.state?.from) ? location.state.from : '/dashboard');
+    } catch (err: unknown) {
+      if (errorMessage(err).includes('timed out')) setLoginError('Login request timed out. Please try again later.');
+      else if (errorMessage(err).includes('Too many requests')) setLoginError('Too many login attempts. Please wait a moment and try again.');
+      else setLoginError(errorMessage(err) || 'Failed to log in. Please check your credentials.');
     } finally {
       setLoading(false);
     }
@@ -40,7 +43,7 @@ const LoginPage = () => {
 
   const handleGoogleLogin = async () => {
     setLoginError(null);
-    try { await loginWithGoogle(); } catch (err: any) { setLoginError(err.message || 'Failed to login with Google'); }
+    try { await loginWithGoogle(); } catch (err: unknown) { setLoginError(errorMessage(err) || 'Failed to login with Google'); }
   };
 
   return (
@@ -65,15 +68,8 @@ const LoginPage = () => {
 
         <div className="auth-testimonial">
           <p className="auth-testimonial-text">
-            "Landed my SDE role at a Series B startup within 3 weeks. IntelliApply surfaced it before it was on LinkedIn."
+            Keep your experience, skills and job preferences together, then track the opportunities you choose to pursue.
           </p>
-          <div className="auth-testimonial-author">
-            <div className="auth-testimonial-avatar">AK</div>
-            <div>
-              <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-primary)' }}>Arjun K.</div>
-              <div style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: "'IBM Plex Mono', monospace", letterSpacing: '0.06em', textTransform: 'uppercase' }}>Software Engineer</div>
-            </div>
-          </div>
         </div>
       </div>
 
@@ -123,11 +119,6 @@ const LoginPage = () => {
                 value={password}
                 onChange={(e) => { setPassword(e.target.value); handleClearErrors(); }}
               />
-            </div>
-
-            <div className="checkbox-wrapper" style={{ marginBottom: 20 }}>
-              <input id="remember-me" name="remember-me" type="checkbox" />
-              <label htmlFor="remember-me">Remember me</label>
             </div>
 
             <button type="submit" disabled={loading} className="btn btn-primary" style={{ width: '100%', justifyContent: 'center', padding: '12px 20px' }}>

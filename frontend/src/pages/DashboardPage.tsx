@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/auth';
 import { jobsAPI } from '../services/api';
+import { waitForTask } from '../lib/tasks';
+import { errorMessage, retryAfter } from '../lib/errors';
 import JobDetailsModal from '../components/jobs/JobDetailsModal';
 import JobCard from '../components/jobs/JobCard';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
@@ -13,224 +15,87 @@ const CheckBadgeIcon: React.FC<IconProps> = ({ className = "w-6 h-6" }) => <svg 
 const NoSymbolIcon: React.FC<IconProps> = ({ className = "w-6 h-6" }) => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className={className}><path fillRule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25zm-1.72 6.97a.75.75 0 10-1.06 1.06L10.94 12l-1.72 1.72a.75.75 0 101.06 1.06L12 13.06l1.72 1.72a.75.75 0 101.06-1.06L13.06 12l1.72-1.72a.75.75 0 10-1.06-1.06L12 10.94l-1.72-1.72z" clipRule="evenodd" /></svg>;
 const RefreshIcon: React.FC<IconProps> = ({ className = "w-4 h-4" }) => <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" /></svg>;
 
-interface Job { id: number; title: string; company: string; location: string; description: string; url: string; source: string; posted_date: string; scraped_at: string; created_at: string; relevance_score?: number; status: 'pending' | 'interested' | 'applied' | 'ignored'; }
+interface Job { is_current?: boolean; id: number; title: string; company: string; location: string; description: string; url: string; source: string; posted_date: string; scraped_at: string; created_at: string; relevance_score?: number; status: 'pending' | 'interested' | 'applied' | 'ignored'; }
 interface JobCounts { total: number; by_status: { pending: number; interested: number; applied: number; ignored: number; }; }
+
+const DataLoadingIndicator = () => (
+    <div style={{ minHeight: 'calc(100vh - 16rem)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+      <div className="spinner" />
+      <p style={{ marginTop: '16px', fontSize: '18px', fontFamily: "'Playfair Display', serif", fontWeight: 500, color: 'var(--text-primary)' }}>Loading your personalized job matches</p>
+    </div>
+  );
+
 
 const DashboardPage = () => {
   const { isAuthenticated, loading: authLoading } = useAuth();
-  const location = useLocation(); 
+  const location = useLocation();
   const navigate = useNavigate();
   const [jobs, setJobs] = useState<Job[]>([]);
-  const [loadingData, setLoadingData] = useState<boolean>(true); 
-  const [isRefreshing, setIsRefreshing] = useState<boolean>(false); 
+  const [loadingData, setLoadingData] = useState<boolean>(true);
+  const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
   const [jobCounts, setJobCounts] = useState<JobCounts>({ total: 0, by_status: { pending: 0, interested: 0, applied: 0, ignored: 0 } });
   const [currentTaskId, setCurrentTaskId] = useState<string | null>(null);
-  const [refreshStatusMessages, setRefreshStatusMessages] = useState<string[]>([]); 
-  const [displayedFakeMessage, setDisplayedFakeMessage] = useState<string>("");
-  const fakeLoadingMessages = [
-    "Initializing job aggregators...",
-    "Connecting to Hacker News job feed...",
-    "Scraping WeWorkRemotely listings...",
-    "Compiling raw job data...",
-    "Filtering and de-duplicating entries...",
-    "Analyzing job descriptions with AI...",
-    "Matching jobs to your unique profile...",
-    "Finalizing your personalized job list..."
-  ];
-  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  const fakeMessageIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  
-  const clearPolling = useCallback(() => { 
-    if (pollingIntervalRef.current) { 
-      console.log('[clearPolling] Attempting to clear interval with ID:', pollingIntervalRef.current);
-      clearInterval(pollingIntervalRef.current); 
-      pollingIntervalRef.current = null; 
-      console.log("Polling cleared. pollingIntervalRef.current is now null.");
-    } else {
-      console.log("[clearPolling] No interval to clear (pollingIntervalRef.current is null).");
-    }
-  }, []);
-
-  const fetchJobsAndCounts = useCallback(async (isAfterRefresh = false) => {
-    if (!isAfterRefresh) setLoadingData(true);
-    setError(null);
-    console.log(isAfterRefresh ? "Fetching jobs and counts after refresh..." : "Fetching initial jobs and counts...");
+  const [refreshStatusMessages, setRefreshStatusMessages] = useState<string[]>([]);
+  const [progressMessage, setProgressMessage] = useState('');
+  const [cooldownUntil, setCooldownUntil] = useState(0);
+  const [clock, setClock] = useState(() => Date.now());
+  const operation = useRef<AbortController | null>(null);
+  const fetchJobsAndCounts = useCallback(async () => {
     try {
-      const [jobsData, countsData] = await Promise.all([
-        jobsAPI.getMatchedJobs(), 
-        jobsAPI.getJobCounts()
-      ]);
-      setJobs(Array.isArray(jobsData) ? jobsData : []);
-      setJobCounts(countsData && typeof countsData === 'object' ? countsData : { total: 0, by_status: { pending: 0, interested: 0, applied: 0, ignored: 0 } });
-      if (!Array.isArray(jobsData) || !countsData || typeof countsData !== 'object') {
-        console.warn('Problem with data structure from API for jobs/counts.');
-        setError('Failed to load some data correctly. Displaying what was available.');
-      }
-    } catch (err: any) {
-      console.error('Error fetching jobs/counts:', err);
-      setError(err.message || 'Failed to fetch data.');
-      setJobs([]); 
-      setJobCounts({ total: 0, by_status: { pending: 0, interested: 0, applied: 0, ignored: 0 } });
-    } finally {
-      setLoadingData(false);
-      console.log("Finished fetching jobs and counts.");
-    }
+      const [items, counts] = await Promise.all([jobsAPI.getMatchedJobs(), jobsAPI.getJobCounts()]);
+      setJobs(items); setJobCounts(counts);
+    } catch (err) { setError(errorMessage(err)); }
+    finally { setLoadingData(false); }
   }, []);
-
-  const pollTaskStatus = useCallback(async (taskId: string) => {
-    console.log(`Polling status for task ID: ${taskId}`);
-    try {
-      const statusData = await jobsAPI.getRefreshStatus(taskId);
-      console.log('[pollTaskStatus] Received statusData from API:', statusData); 
-      const newMessage = statusData.message || `Status: ${statusData.status}`;
-      if(newMessage) {
-        setRefreshStatusMessages(prevMessages => {
-          if (prevMessages.length === 0 || prevMessages[prevMessages.length - 1] !== newMessage) {
-            return [...prevMessages, newMessage];
-          }
-          return prevMessages;
-        });
-      }
-
-      if (statusData.status === 'completed') {
-        console.log('[pollTaskStatus] Condition (statusData.status === "completed") is TRUE. About to call setIsRefreshing(false).');
-        clearPolling();
-        setIsRefreshing(false);
-        setCurrentTaskId(null);
-        setRefreshStatusMessages(prev => [...prev, 'Job refresh completed! Fetching updated jobs...']);
-        await fetchJobsAndCounts(true); 
-        setRefreshStatusMessages(prev => [...prev, 'Updated jobs loaded.']);
-        setTimeout(() => setRefreshStatusMessages([]), 5000);
-      } else if (statusData.status === 'failed') {
-        clearPolling();
-        setIsRefreshing(false);
-        setCurrentTaskId(null);
-        setError(statusData.message || 'Job refresh failed.');
-        setRefreshStatusMessages([]);
-      }
-    } catch (err: any) {
-      console.error('Error polling task status:', err);
-      clearPolling();
-      setIsRefreshing(false);
-      setCurrentTaskId(null);
-      setError(err.message || 'Error checking refresh status.');
-      setRefreshStatusMessages([]);
-      console.log('[pollTaskStatus] CAUGHT ERROR. isRefreshing set to false in catch block.');
+  useEffect(() => {
+    if (!authLoading && isAuthenticated) {
+      const timer = setTimeout(() => void fetchJobsAndCounts(), 0);
+      return () => { clearTimeout(timer); operation.current?.abort(); };
     }
-  }, [clearPolling, fetchJobsAndCounts]);
-
+    return () => { operation.current?.abort(); };
+  }, [authLoading, isAuthenticated, fetchJobsAndCounts]);
+  useEffect(() => {
+    if (cooldownUntil <= Date.now()) return;
+    const timer = setInterval(() => setClock(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, [cooldownUntil]);
   const refreshJobs = useCallback(async () => {
-    if (isRefreshing) return;
-    console.log("Starting job refresh process...");
-    setIsRefreshing(true);
-    setError(null);
-    setRefreshStatusMessages(['Initiating job refresh... Please wait.']);
-    clearPolling(); 
+    if (operation.current || Date.now() < cooldownUntil) return;
+    const controller = new AbortController(); operation.current = controller;
+    setIsRefreshing(true); setError(null); setProgressMessage('Requesting a job refresh…');
     try {
       const response = await jobsAPI.refreshJobs();
-      const taskIdForPolling = response.task_id; 
-      setCurrentTaskId(taskIdForPolling);
-      setRefreshStatusMessages(prev => [...prev, response.message || `Job refresh started for ${taskIdForPolling}, polling for status...`]);
-      
-      const newIntervalId = setInterval(() => {
-        console.log(`[setInterval] Firing for task ID: ${taskIdForPolling}. Is pollTaskStatus a function?`, typeof pollTaskStatus === 'function');
-        if (typeof pollTaskStatus === 'function') {
-          pollTaskStatus(taskIdForPolling);
-        } else {
-          console.error('[setInterval] pollTaskStatus is not a function! Clearing this interval:', newIntervalId);
-          clearInterval(newIntervalId); 
-          if (pollingIntervalRef.current === newIntervalId) {
-             pollingIntervalRef.current = null;
-          }
-          setIsRefreshing(false); 
-        }
-      }, 3000);
-      pollingIntervalRef.current = newIntervalId;
-      console.log(`[refreshJobs] Interval set with ID: ${newIntervalId}. pollingIntervalRef.current is now: ${pollingIntervalRef.current}. Task ID: ${taskIdForPolling}`);
-    } catch (err: any) {
-      console.error('Error initiating job refresh:', err);
-      setIsRefreshing(false);
-      setError(err.message || 'Failed to start job refresh.');
-      setRefreshStatusMessages([]);
-    }
-  }, [isRefreshing, clearPolling, pollTaskStatus]);
-
-  useEffect(() => {
-    if (!authLoading && isAuthenticated && !currentTaskId && jobs.length === 0 && !isRefreshing) {
-      console.log("useEffect (initial load): Fetching initial jobs and counts.");
-      fetchJobsAndCounts();
-    }
-  }, [isAuthenticated, authLoading, currentTaskId, jobs.length, isRefreshing, fetchJobsAndCounts]);
-
-  useEffect(() => {
-    const queryParams = new URLSearchParams(location.search);
-    const shouldRefresh = queryParams.get('refresh') === 'true';
-
-    if (shouldRefresh && !authLoading && isAuthenticated && !isRefreshing) {
-      console.log("useEffect (URL trigger): refresh=true detected. Calling refreshJobs.");
-      refreshJobs();
-      navigate('/dashboard', { replace: true }); 
-    }
-  }, [location.search, authLoading, isAuthenticated, isRefreshing, refreshJobs, navigate]);
-
-  useEffect(() => {
-    return () => {
-      console.log("useEffect (unmount cleanup): DashboardPage unmounting. Clearing polling.");
-      clearPolling();
-      if (fakeMessageIntervalRef.current) {
-        clearInterval(fakeMessageIntervalRef.current);
+      if (controller.signal.aborted) return;
+      setCurrentTaskId(response.task_id);
+      const result = await waitForTask(signal => jobsAPI.getRefreshStatus(response.task_id, signal), controller.signal, setProgressMessage);
+      if (result.status === 'partial_failure') setError(result.message);
+      else setRefreshStatusMessages([result.message]);
+      await fetchJobsAndCounts();
+    } catch (err) {
+      if (!controller.signal.aborted) {
+        setError(errorMessage(err));
+        const seconds = retryAfter(err);
+        if (seconds) { setClock(Date.now()); setCooldownUntil(Date.now() + seconds * 1000); }
       }
-    };
-  }, [clearPolling]); 
-
-  const messageIndexRef = useRef(0);
-
+    } finally {
+      operation.current = null;
+      if (!controller.signal.aborted) { setIsRefreshing(false); setCurrentTaskId(null); }
+    }
+  }, [cooldownUntil, fetchJobsAndCounts]);
   useEffect(() => {
-    if (fakeMessageIntervalRef.current) {
-      clearInterval(fakeMessageIntervalRef.current);
-      fakeMessageIntervalRef.current = null;
+    if (location.search.includes('refresh=true') && !authLoading && isAuthenticated) {
+      const timer = setTimeout(() => { navigate('/dashboard', { replace: true }); void refreshJobs(); }, 0);
+      return () => clearTimeout(timer);
     }
+  }, [location.search, authLoading, isAuthenticated, navigate, refreshJobs]);
+  const handleStatusChange = useCallback(async (jobId: number, status: string) => {
+    try { await jobsAPI.updateJobStatus(jobId, status); await fetchJobsAndCounts(); }
+    catch (err) { setError(errorMessage(err)); throw err; }
+  }, [fetchJobsAndCounts]);
 
-    if (isRefreshing && currentTaskId) {
-      messageIndexRef.current = 0;
-      setDisplayedFakeMessage(fakeLoadingMessages[0]);
-
-      fakeMessageIntervalRef.current = setInterval(() => {
-        messageIndexRef.current = (messageIndexRef.current + 1);
-        const nextMessageIndex = messageIndexRef.current % fakeLoadingMessages.length;
-        const nextMessage = fakeLoadingMessages[nextMessageIndex];
-        console.log(`[FakeMessageInterval] Index: ${messageIndexRef.current}, NextIndex: ${nextMessageIndex}, NextMsg: "${nextMessage}"`);
-        setDisplayedFakeMessage(nextMessage);
-      }, 2000);
-    } else {
-      setDisplayedFakeMessage(""); 
-    }
-
-    return () => {
-      if (fakeMessageIntervalRef.current) {
-        clearInterval(fakeMessageIntervalRef.current);
-        fakeMessageIntervalRef.current = null;
-      }
-    };
-  }, [isRefreshing, currentTaskId]);
-
-
-  const handleStatusChange = useCallback(async (jobId: number, newStatus: string) => {
-    console.log(`Changing status for job ${jobId} to ${newStatus}`);
-    try {
-      await jobsAPI.updateJobStatus(jobId, newStatus);
-      setJobs(prevJobs => prevJobs.map(job => job.id === jobId ? { ...job, status: newStatus as Job['status'] } : job));
-      const countsData = await jobsAPI.getJobCounts();
-      setJobCounts(countsData && typeof countsData === 'object' ? countsData : { total: 0, by_status: { pending: 0, interested: 0, applied: 0, ignored: 0 } });
-    } catch (err: any) {
-      console.error('Error updating job status:', err);
-      setError(err.message || 'Failed to update job status.');
-    }
-  }, []);
-
-  if (authLoading) { 
+  if (authLoading) {
     return (
       <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-base)', padding: '16px' }}>
         <div className="spinner" />
@@ -245,51 +110,45 @@ const DashboardPage = () => {
         <div className="spinner" style={{ marginBottom: '16px' }} />
         <p style={{ fontSize: '20px', fontFamily: "'Playfair Display', serif", fontWeight: 500, color: 'var(--text-primary)', marginBottom: '8px' }}>Refreshing jobs</p>
         <div style={{ height: '24px', textAlign: 'center', maxWidth: '400px', width: '100%' }}>
-          {displayedFakeMessage && (
-            <p key={displayedFakeMessage} className="animate-messageFadeInOut" style={{ fontSize: '14px', color: 'var(--accent)' }}>
-              {displayedFakeMessage}
+          {progressMessage && (
+            <p key={progressMessage} className="animate-messageFadeInOut" style={{ fontSize: '14px', color: 'var(--accent)' }}>
+              {progressMessage}
             </p>
           )}
         </div>
       </div>
     );
   }
-  
-  const DataLoadingIndicator = () => (
-    <div style={{ minHeight: 'calc(100vh - 16rem)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-      <div className="spinner" />
-      <p style={{ marginTop: '16px', fontSize: '18px', fontFamily: "'Playfair Display', serif", fontWeight: 500, color: 'var(--text-primary)' }}>Loading your personalized job matches</p>
-    </div>
-  );
 
-  if (loadingData && jobs.length === 0 && !currentTaskId && !isRefreshing) { 
-    return <DataLoadingIndicator />; 
+  if (loadingData && jobs.length === 0 && !currentTaskId && !isRefreshing) {
+    return <DataLoadingIndicator />;
   }
-  
+
   const openJobDetails = (job: Job) => setSelectedJob(job);
   const closeJobDetails = () => setSelectedJob(null);
 
   const countCardData = [
-    { title: "Total Matches", count: jobCounts.total, Icon: BriefcaseIcon, color: 'var(--accent)', bgColor: 'var(--accent-soft)' },
+    { title: "Recommendations & Tracked", count: jobCounts.total, Icon: BriefcaseIcon, color: 'var(--accent)', bgColor: 'var(--accent-soft)' },
     { title: "Interested", count: jobCounts.by_status.interested, Icon: BookmarkSquareIcon, color: 'var(--status-interested-text)', bgColor: 'var(--status-interested-bg)' },
     { title: "Applied", count: jobCounts.by_status.applied, Icon: CheckBadgeIcon, color: 'var(--status-applied-text)', bgColor: 'var(--status-applied-bg)' },
     { title: "Ignored", count: jobCounts.by_status.ignored, Icon: NoSymbolIcon, color: 'var(--status-ignored-text)', bgColor: 'var(--status-ignored-bg)' }
   ];
 
-  console.log('[DashboardPage Render] isRefreshing:', isRefreshing, 'currentTaskId:', currentTaskId, 'loadingData:', loadingData, 'authLoading:', authLoading, 'isAuthenticated:', isAuthenticated);
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg-base)', paddingTop: '60px' }}>
       <div style={{ maxWidth: '1200px', margin: '0 auto', padding: 'var(--space-7) var(--space-5)' }}>
+        {clock < cooldownUntil && <p role="status">Retry available in {Math.ceil((cooldownUntil-clock)/1000)} seconds.</p>}
+        {refreshStatusMessages.map(message => <p key={message} role="status">{message}</p>)}
         {/* Header */}
         <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 'var(--space-6)', gap: 'var(--space-4)' }}>
           <div>
             <h1 className="text-h1">Your Job <span className="text-accent">Matches</span></h1>
-            <p className="text-body" style={{ marginTop: '4px' }}>Personalized recommendations based on your profile.</p>
+            <p className="text-body" style={{ marginTop: '4px' }}>Current recommendations and your tracked application history.</p>
           </div>
           <button
             onClick={refreshJobs}
-            disabled={isRefreshing || authLoading || (!isAuthenticated && !authLoading)} 
+            disabled={clock < cooldownUntil || isRefreshing || authLoading || (!isAuthenticated && !authLoading)}
             className="btn btn-primary"
             style={{ gap: '8px' }}
           >
@@ -306,8 +165,8 @@ const DashboardPage = () => {
             )}
           </button>
         </div>
-        
-        {error && !isRefreshing && ( 
+
+        {error && !isRefreshing && (
           <div className="alert alert-error" role="alert" style={{ marginBottom: 'var(--space-5)' }}>
             <strong>Error:</strong> {error}
           </div>
@@ -319,7 +178,7 @@ const DashboardPage = () => {
             <div key={item.title} className="card card-hover card-feature" style={{ padding: 'var(--space-5)' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <p className="counter-animate" style={{ fontSize: '36px', fontWeight: 500, color: item.color, fontFamily: "'Playfair Display', serif", letterSpacing: '-0.02em' }}>{item.count}</p>
-                <div style={{ 
+                <div style={{
                    padding: '10px', borderRadius: 'var(--radius-sm)',
                    background: item.bgColor,
                    border: `1px solid ${item.color}22`,
@@ -338,12 +197,12 @@ const DashboardPage = () => {
         </div>
 
         {/* Job Cards */}
-        {(loadingData && jobs.length === 0 && !isRefreshing && !currentTaskId) ? ( 
+        {(loadingData && jobs.length === 0 && !isRefreshing && !currentTaskId) ? (
             <DataLoadingIndicator />
         ) : jobs.length === 0 && !isRefreshing ? (
           <div className="card card-feature" style={{ textAlign: 'center', padding: 'var(--space-8)' }}>
-            <div style={{ 
-              width: '64px', height: '64px', borderRadius: '50%', 
+            <div style={{
+              width: '64px', height: '64px', borderRadius: '50%',
       background: 'var(--accent-soft)',
       border: '1px solid var(--border-accent)',
       display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -360,7 +219,7 @@ const DashboardPage = () => {
             </Link>
           </div>
         ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: 'var(--space-4)' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 340px), 1fr))', gap: 'var(--space-4)' }}>
             {jobs.map((job) => (
               <JobCard key={job.id} job={job} onOpenDetails={openJobDetails} onStatusChange={handleStatusChange} />
             ))}

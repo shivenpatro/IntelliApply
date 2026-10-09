@@ -1,41 +1,23 @@
-# Use an official Python runtime as a parent image
-FROM python:3.12
+FROM python:3.12.14-slim-bookworm
 
-# Set the working directory in the container
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
 WORKDIR /app
 
-# Copy the requirements file into the container at /app
-COPY requirements.txt .
+# Wheels in the reviewed lockfile include the required native libraries.
+COPY --chmod=644 requirements.lock .
+RUN --mount=type=secret,id=build_ca \
+    if [ -f /run/secrets/build_ca ]; then export PIP_CERT=/run/secrets/build_ca; fi; \
+    python -m pip install --no-cache-dir --require-hashes -r requirements.lock \
+    && useradd --create-home --uid 10001 appuser
 
-# Install system dependencies required for building Python packages
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential \
-    libpq-dev \
-    && rm -rf /var/lib/apt/lists/*
-
-# Install any needed packages specified in requirements.txt
-# Use --no-cache-dir to reduce image size
-# Use --trusted-host pypi.python.org to avoid SSL issues in some environments
-RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir --upgrade setuptools wheel Cython && \
-    pip install --no-cache-dir --trusted-host pypi.python.org --no-cache-dir -r requirements.txt
-
-# Copy the rest of the backend application code into the container at /app
-# This includes your 'app' directory, etc.
-COPY . .
-
-# Make port 80 available to the world outside this container
-# (Render will map this to its own $PORT, which Uvicorn will use)
+# Copy only runtime and migration sources. No local environment or test data.
+COPY --chmod=755 app ./app
+COPY --chmod=755 migrations ./migrations
+COPY --chmod=644 alembic.ini .
+USER appuser
 EXPOSE 8080
 
-# Define environment variable for the port (Render often sets this, Uvicorn will use it)
-# Default to 80 if not set by the platform.
-# ENV PORT 80 # Koyeb will provide the PORT environment variable.
-
-# Run uvicorn when the container launches.
-# Bind to 0.0.0.0 to be accessible from outside the container.
-# Use the PORT environment variable provided by the platform (e.g., Koyeb), default to 8080 if not set.
-# --workers 1 is a good default for many PaaS free/hobby tiers.
-# --forwarded-allow-ips='*' is important if running behind a reverse proxy (common on PaaS)
-# Using sh -c to ensure environment variable substitution for $PORT
-CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8080} --forwarded-allow-ips '*'"]
+# Migrations are an explicit release step, never an automatic startup mutation.
+CMD ["sh", "-c", "exec python -m uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8080}"]

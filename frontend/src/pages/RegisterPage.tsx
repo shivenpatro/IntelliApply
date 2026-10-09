@@ -1,6 +1,7 @@
+import { errorMessage } from '../lib/errors';
 import { useState, useEffect, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/auth';
 import { useLoadingState } from '../hooks/useLoadingState';
 
 const IntelliApplyLogo = () => (
@@ -16,7 +17,7 @@ const RegisterPage = () => {
   const [registerError, setRegisterError] = useState<string | null>(null);
   const [registrationSuccess, setRegistrationSuccess] = useState(false);
   const { register, loginWithGoogle, error: authContextError, clearError } = useAuth();
-  const [loading, setLoading, resetLoading] = useLoadingState(false, 15000);
+  const [loading, setLoading, resetLoading] = useLoadingState(false);
   const navigate = useNavigate();
 
   useEffect(() => () => resetLoading(), [resetLoading]);
@@ -31,14 +32,13 @@ const RegisterPage = () => {
 
     setLoading(true);
     try {
-      const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Registration timed out')), 10000));
-      await Promise.race([register(email, password), timeoutPromise]);
+      const active = await register(email, password);
+      if (active) navigate('/dashboard');
       setRegistrationSuccess(true);
-      navigate('/dashboard');
-    } catch (err: any) {
-      if (err.message?.includes('timed out')) setRegisterError('Registration timed out. Please try again later.');
-      else if (err.message?.includes('already registered') || err.message?.includes('already exists')) setRegisterError('This email is already registered. Please try logging in.');
-      else setRegisterError(err.message || authContextError || 'Failed to register. Please try again.');
+    } catch (err: unknown) {
+      if (errorMessage(err).includes('timed out')) setRegisterError('Registration timed out. Please try again later.');
+      else if (errorMessage(err).includes('already registered') || errorMessage(err).includes('already exists')) setRegisterError('This email is already registered. Please try logging in.');
+      else setRegisterError(errorMessage(err) || authContextError || 'Failed to register. Please try again.');
     } finally { setLoading(false); }
   };
 
@@ -46,7 +46,7 @@ const RegisterPage = () => {
 
   const handleGoogleRegister = async () => {
     setRegisterError(null);
-    try { await loginWithGoogle(); } catch (err: any) { setRegisterError(err.message || 'Failed to register with Google'); }
+    try { await loginWithGoogle(); } catch (err: unknown) { setRegisterError(errorMessage(err) || 'Failed to register with Google'); }
   };
 
   const passwordStrength = useMemo(() => {
@@ -84,21 +84,14 @@ const RegisterPage = () => {
             <em>smarter job search.</em>
           </h2>
           <p className="auth-brand-sub">
-            Join thousands of candidates who use AI-powered matching to find roles that truly fit.
+            Build your profile and explore roles using your skills and job preferences.
           </p>
         </div>
 
         <div className="auth-testimonial">
           <p className="auth-testimonial-text">
-            "The match scoring is uncanny — it found roles I would have never discovered. Saved me weeks of searching."
+            Add your skills and experience, choose your preferences, and keep your job search organized in one place.
           </p>
-          <div className="auth-testimonial-author">
-            <div className="auth-testimonial-avatar">SP</div>
-            <div>
-              <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-primary)' }}>Sarah P.</div>
-              <div style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: "'IBM Plex Mono', monospace", letterSpacing: '0.06em', textTransform: 'uppercase' }}>Product Designer</div>
-            </div>
-          </div>
         </div>
       </div>
 
@@ -122,7 +115,7 @@ const RegisterPage = () => {
           {registrationSuccess && (
             <div className="alert alert-success" role="alert" style={{ marginBottom: 18 }}>
               <strong>Registration successful.</strong>
-              <p style={{ marginTop: 4, fontSize: 13 }}>Redirecting to your dashboard…</p>
+              <p style={{ marginTop: 4, fontSize: 13 }}>Check your email if verification is required, then sign in.</p>
             </div>
           )}
 

@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import Lenis from '@studio-freight/lenis';
+import Lenis from 'lenis';
 
 let lenis: Lenis | null = null;
 
@@ -16,6 +16,7 @@ export const useLenisScroll = () => {
       easing: (t: number) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
       orientation: 'vertical',
       smoothWheel: true,
+      anchors: true,
     });
 
     let frame = 0;

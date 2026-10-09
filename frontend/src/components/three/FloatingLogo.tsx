@@ -1,6 +1,6 @@
-import { useRef, useState, useEffect } from 'react';
-import { Canvas, useFrame } from '@react-three/fiber';
-import { Text, useMatcapTexture, Center, Text3D } from '@react-three/drei'; // Added missing imports
+import { useRef, useState } from 'react';
+import { useFrame } from '@react-three/fiber';
+import { useMatcapTexture, Center, Text3D } from '@react-three/drei'; // Added missing imports
 // import { useSpring, animated } from '@react-spring/three'; // Commented out due to React 19 incompatibility
 import * as THREE from 'three';
 

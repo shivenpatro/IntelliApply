@@ -1,3 +1,4 @@
+import { createElement } from 'react';
 import { useLineMaskReveal } from '../../hooks/useGsapReveal';
 
 interface TextRevealProps {
@@ -19,12 +20,7 @@ const TextReveal: React.FC<TextRevealProps> = ({
   scrub = false,
 }) => {
   const ref = useLineMaskReveal<HTMLDivElement>({ delay, scrub });
-  const Component = Tag as any;
-  return (
-    <Component ref={ref} className={className} style={style}>
-      {children}
-    </Component>
-  );
+  return createElement(Tag, { ref, className, style }, children);
 };
 
 export default TextReveal;

@@ -1,177 +1,53 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import {
-  signIn,
-  signUp,
-  signOut,
-  signInWithGoogle,
-  getSession,
-  onAuthStateChange,
-  notifyAuthChange,
-  type NeonAuthUser,
-  type NeonAuthSession,
-} from '../lib/neon';
-import { profileAPI } from '../services/api';
-
-interface AuthContextType {
-  user: NeonAuthUser | null;
-  session: NeonAuthSession | null;
-  isAuthenticated: boolean;
-  loading: boolean;
-  error: string | null;
-  login: (email: string, password: string) => Promise<void>;
-  register: (email: string, password: string) => Promise<void>;
-  loginWithGoogle: () => Promise<void>;
-  logout: () => Promise<void>;
-  clearError: () => void;
-}
-
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+import { useState, useEffect, type ReactNode } from 'react';
+import { signIn, signUp, signOut, signInWithGoogle, getSession, onAuthStateChange, notifyAuthChange, type NeonAuthSession } from '../lib/neon';
+import { errorMessage } from '../lib/errors';
+import { AuthContext } from './auth';
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<NeonAuthUser | null>(null);
   const [session, setSession] = useState<NeonAuthSession | null>(null);
-  const [loading, setLoading] = useState<boolean>(true);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
-
   useEffect(() => {
-    // On mount, check for existing session in localStorage
-    getSession().then(({ data }) => {
-      if (data?.session) {
-        setSession(data.session);
-        setUser(data.session.user);
-        setIsAuthenticated(true);
-      } else {
-        setSession(null);
-        setUser(null);
-        setIsAuthenticated(false);
-      }
-      setLoading(false);
-    });
-
-    // Listen for auth state changes
-    const { data: listener } = onAuthStateChange((event, session) => {
-      if (session) {
-        setSession(session);
-        setUser(session.user);
-        setIsAuthenticated(true);
-      } else {
-        setSession(null);
-        setUser(null);
-        setIsAuthenticated(false);
-      }
-    });
-
-    return () => {
-      listener?.subscription.unsubscribe();
-    };
+    let mounted = true; let changes = 0;
+    const listener = onAuthStateChange((_event, updated) => { changes++; if (mounted) { setSession(updated); setLoading(false); } });
+    getSession().then(({ data }) => { if (mounted && changes === 0) { setSession(data.session); setLoading(false); } });
+    return () => { mounted = false; listener.data.subscription.unsubscribe(); };
   }, []);
-
-  // Fetch profile when authenticated
   useEffect(() => {
-    if (isAuthenticated && user) {
-      console.log('[AuthContext] isAuthenticated=true. Fetching profile...');
-      profileAPI.getProfile().catch((err) => {
-        console.error('[AuthContext] Failed to fetch profile:', err);
-      });
-    }
-  }, [isAuthenticated, user]);
-
+    if (!session?.expiresAt) return;
+    const timeout = Math.max(1000, Math.min(2147483647, Date.parse(session.expiresAt) - Date.now() - 5000));
+    const timer = setTimeout(() => { void getSession({ force: true }).then(({ data }) => setSession(previous => previous?.token === session.token ? data.session : previous)); }, timeout);
+    return () => clearTimeout(timer);
+  }, [session]);
   const login = async (email: string, password: string) => {
-    setLoading(true);
-    setError(null);
+    setLoading(true); setError(null);
     try {
-      const { data, error } = await signIn(email, password);
-      if (error) throw error;
-      if (data?.user && data?.session) {
-        setUser(data.user);
-        setSession(data.session);
-        setIsAuthenticated(true);
-        notifyAuthChange('SIGNED_IN', data.session);
-      }
-    } catch (err: any) {
-      setError(err.message || 'Login failed');
-      setIsAuthenticated(false);
-      throw err;
-    } finally {
-      setLoading(false);
-    }
+      const result = await signIn(email, password);
+      if (result.error) throw result.error;
+      if (!result.data.session) throw new Error('Please sign in again.');
+      setSession(result.data.session); notifyAuthChange('SIGNED_IN', result.data.session);
+    } catch (err) { setError(errorMessage(err)); throw err; }
+    finally { setLoading(false); }
   };
-
   const register = async (email: string, password: string) => {
-    setLoading(true);
-    setError(null);
+    setLoading(true); setError(null);
     try {
-      const { data, error } = await signUp(email, password);
-      if (error) throw error;
-      if (data?.user && data?.session) {
-        setUser(data.user);
-        setSession(data.session);
-        setIsAuthenticated(true);
-        notifyAuthChange('SIGNED_IN', data.session);
-      }
-    } catch (err: any) {
-      setError(err.message || 'Registration failed');
-      setIsAuthenticated(false);
-      throw err;
-    } finally {
-      setLoading(false);
-    }
+      const result = await signUp(email, password);
+      if (result.error) throw result.error;
+      if (result.data.session) { setSession(result.data.session); notifyAuthChange('SIGNED_IN', result.data.session); }
+      return !!result.data.session;
+    } catch (err) { setError(errorMessage(err)); throw err; }
+    finally { setLoading(false); }
   };
-
   const loginWithGoogle = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const { error } = await signInWithGoogle();
-      if (error) throw error;
-    } catch (err: any) {
-      setError(err.message || 'Google Login failed');
-      throw err;
-    } finally {
-      setLoading(false);
-    }
+    setLoading(true); setError(null);
+    try { const result = await signInWithGoogle(); if (result.error) throw result.error; }
+    catch (err) { setError(errorMessage(err)); throw err; }
+    finally { setLoading(false); }
   };
-
   const logout = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      await signOut();
-      setUser(null);
-      setSession(null);
-      setIsAuthenticated(false);
-      notifyAuthChange('SIGNED_OUT', null);
-    } catch (err: any) {
-      setError(err.message || 'Logout failed');
-      throw err;
-    } finally {
-      setLoading(false);
-    }
+    const result = await signOut(); setSession(null);
+    if (result.error) setError(result.error.message);
   };
-
-  const clearError = () => setError(null);
-
-  const value = {
-    user,
-    session,
-    isAuthenticated,
-    loading,
-    error,
-    login,
-    register,
-    loginWithGoogle,
-    logout,
-    clearError,
-  };
-
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
-}
-
-export function useAuth() {
-  const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
+  return <AuthContext.Provider value={{user:session?.user || null,session,isAuthenticated:!!session,loading,error,login,register,loginWithGoogle,logout,clearError:() => setError(null)}}>{children}</AuthContext.Provider>;
 }
