@@ -33,6 +33,33 @@ class ExtractedResume(BaseModel):
     experiences: list[ExtractedExperience] = Field(max_length=50)
 
 
+# Keep the provider schema within Gemini's supported subset. Full length, date,
+# and collection constraints are enforced by ExtractedResume after generation.
+GEMINI_RESUME_SCHEMA = {
+    "type": "OBJECT",
+    "properties": {
+        "full_name": {"type": "STRING"},
+        "skills": {"type": "ARRAY", "items": {"type": "STRING"}},
+        "experiences": {
+            "type": "ARRAY",
+            "items": {
+                "type": "OBJECT",
+                "properties": {
+                    "title": {"type": "STRING"},
+                    "company": {"type": "STRING"},
+                    "location": {"type": "STRING", "nullable": True},
+                    "start_date": {"type": "STRING", "nullable": True},
+                    "end_date": {"type": "STRING", "nullable": True},
+                    "description": {"type": "STRING", "nullable": True},
+                },
+                "required": ["title", "company"],
+            },
+        },
+    },
+    "required": ["full_name", "skills", "experiences"],
+}
+
+
 def validate_resume(data: bytes, extension: str):
     if not data:
         raise HTTPException(400, "Resume file is empty.")
@@ -106,8 +133,9 @@ async def extract_resume(data, extension):
             contents=content,
             config=types.GenerateContentConfig(
                 response_mime_type="application/json",
-                response_schema=ExtractedResume,
+                response_schema=GEMINI_RESUME_SCHEMA,
                 max_output_tokens=4096,
+                thinking_config=types.ThinkingConfig(thinking_level="low"),
             ),
         )
         return ExtractedResume.model_validate_json(response.text or "")
