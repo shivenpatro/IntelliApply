@@ -397,7 +397,9 @@ def test_vectorizer_refits_for_changed_corpus_and_handles_small_corpus():
     assert calculate_job_matches("Python", []) == []
 
 
-@pytest.mark.parametrize("response_kind", ["valid", "quota", "malformed"])
+@pytest.mark.parametrize(
+    "response_kind", ["valid", "quota", "malformed", "oversized", "invalid_dates"]
+)
 def test_real_genai_client_serializes_bounded_structured_requests(
     monkeypatch, response_kind
 ):
@@ -413,7 +415,22 @@ def test_real_genai_client_serializes_bounded_structured_requests(
         body = json.loads(request.content)
         assert body["generationConfig"]["maxOutputTokens"] == 4096
         assert body["generationConfig"]["responseMimeType"] == "application/json"
-        assert "responseSchema" in body["generationConfig"]
+        assert body["generationConfig"]["thinkingConfig"]["thinking_level"] == "LOW"
+        schema = body["generationConfig"]["responseSchema"]
+        assert schema["required"] == ["full_name", "skills", "experiences"]
+        experience = schema["properties"]["experiences"]["items"]
+        assert experience["properties"]["end_date"]["nullable"] is True
+        assert all(
+            token not in json.dumps(schema)
+            for token in [
+                "$ref",
+                "$defs",
+                "anyOf",
+                "maxLength",
+                "minLength",
+                "date-time",
+            ]
+        )
         if response_kind == "quota":
             return httpx.Response(
                 429,
@@ -425,11 +442,20 @@ def test_real_genai_client_serializes_bounded_structured_requests(
                     }
                 },
             )
-        output = (
-            {"full_name": "Test Person", "skills": ["Python"], "experiences": []}
-            if response_kind == "valid"
-            else {"unexpected": "output"}
-        )
+        output = {"full_name": "Test Person", "skills": ["Python"], "experiences": []}
+        if response_kind == "malformed":
+            output = {"unexpected": "output"}
+        elif response_kind == "oversized":
+            output["skills"] = ["Python"] * 101
+        elif response_kind == "invalid_dates":
+            output["experiences"] = [
+                {
+                    "title": "Engineer",
+                    "company": "Example",
+                    "start_date": "2025-01-01",
+                    "end_date": "2024-01-01",
+                }
+            ]
         return httpx.Response(
             200,
             json={

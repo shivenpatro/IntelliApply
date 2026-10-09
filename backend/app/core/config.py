@@ -25,7 +25,7 @@ class Settings(BaseSettings):
     DB_POOL_SIZE: int = Field(5, ge=1, le=30)
     DB_MAX_OVERFLOW: int = Field(2, ge=0, le=30)
     GEMINI_API_KEY: Optional[str] = None
-    GEMINI_MODEL: str = "gemini-2.5-flash"
+    GEMINI_MODEL: str = "gemini-3.8-flash"
     FIRECRAWL_API_KEY: Optional[str] = None
     MAX_UPLOAD_BYTES: int = Field(5 * 1024 * 1024, ge=1024, le=20 * 1024 * 1024)
     TASK_TIMEOUT_SECONDS: int = Field(120, ge=10, le=600)
