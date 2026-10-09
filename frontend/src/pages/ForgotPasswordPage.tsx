@@ -51,21 +51,14 @@ const ForgotPasswordPage = () => {
             <em>your back.</em>
           </h2>
           <p className="auth-brand-sub">
-            Password resets happen. We'll send a secure link to get you back in seconds.
+            Request a password-reset link using the email address associated with your account.
           </p>
         </div>
 
         <div className="auth-testimonial">
           <p className="auth-testimonial-text">
-            "The security flow was seamless. Got my reset link instantly and was back in action within a minute."
+            Check your inbox and spam folder for the reset email. If the link has expired, request a new one.
           </p>
-          <div className="auth-testimonial-author">
-            <div className="auth-testimonial-avatar">MR</div>
-            <div>
-              <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-primary)' }}>Mark R.</div>
-              <div style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: "'IBM Plex Mono', monospace", letterSpacing: '0.06em', textTransform: 'uppercase' }}>Engineering Manager</div>
-            </div>
-          </div>
         </div>
       </div>
 

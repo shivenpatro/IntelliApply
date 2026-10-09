@@ -84,21 +84,14 @@ const RegisterPage = () => {
             <em>smarter job search.</em>
           </h2>
           <p className="auth-brand-sub">
-            Join thousands of candidates who use AI-powered matching to find roles that truly fit.
+            Build your profile and explore roles using your skills and job preferences.
           </p>
         </div>
 
         <div className="auth-testimonial">
           <p className="auth-testimonial-text">
-            "The match scoring is uncanny — it found roles I would have never discovered. Saved me weeks of searching."
+            Add your skills and experience, choose your preferences, and keep your job search organized in one place.
           </p>
-          <div className="auth-testimonial-author">
-            <div className="auth-testimonial-avatar">SP</div>
-            <div>
-              <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-primary)' }}>Sarah P.</div>
-              <div style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: "'IBM Plex Mono', monospace", letterSpacing: '0.06em', textTransform: 'uppercase' }}>Product Designer</div>
-            </div>
-          </div>
         </div>
       </div>
 

@@ -1,54 +1,57 @@
-# Deployment follow-up
+# Deployment verification
 
-Date: 2026-10-09 (Asia/Kolkata). The user has authorized deployment and real integration checks. Deployment permission is established; the remaining prerequisites are access and release evidence.
+Date: 2026-10-09 (Asia/Kolkata). Deployment and real integration checks are authorized. This document separates the observed baseline, verified release evidence and external requirements. Deployment revisions/results are recorded in [PR #3](https://github.com/shivenpatro/IntelliApply/pull/3) and its host checks.
 
-## Hosting confirmed from the live application
+## Hosting and baseline
 
-| Component | Confirmed destination | Evidence |
+| Component | Verified host | Initial observed state |
 | --- | --- | --- |
-| Frontend | `https://intelli-apply.vercel.app` on Vercel | Landing page/assets return 200. GitHub records the Vercel Production deployment for baseline revision `2ea161540b22c85567f1c2f5c42632bbdf0db070`. |
-| Backend | `https://intelliapply.onrender.com` on Render | The served JavaScript uses this API origin. `/health` and `/openapi.json` respond with the old API contract. |
-| Authentication | The existing `ep-green-glade-ajuf7urf` Neon Auth project | Live frontend configuration and reachable session/JWKS endpoints agree. |
+| Frontend | `https://intelli-apply.vercel.app` on Vercel | GitHub revision `2ea161540b22c85567f1c2f5c42632bbdf0db070`; frontend build root `frontend`. |
+| Backend | `https://intelliapply.onrender.com` on Render | June revision `c33524ffd739f95cd5d8c2cdf237cbf504b22f57`, Docker root `backend`, free plan in Singapore, one instance. |
+| Database/auth | Existing `ep-green-glade-ajuf7urf` Neon project | PostgreSQL 17.11 and managed Neon Auth. |
 
-The backend is not hosted by Vercel. The Vercel rewrite serves frontend pages; it does not replace or proxy the Render API.
+The backend is on Render. Vercel's SPA rewrite does not proxy or replace it. The baseline backend and frontend were deployed from different revisions.
 
-## Verified live, without using customer identities
+Authenticated Vercel/Render API access now works after publication of the cloud environment. MCP tools are not exposed to this chat, but authenticated host APIs provide the required management access. Credentials are never included in repository files or reports.
 
-- Landing, login, registration, recovery, password-update and callback pages return 200 on direct navigation. Anonymous dashboard/profile visits redirect to login. No JavaScript page exceptions occurred in the browser run.
-- The Render health response is 200 and protected profile access is 401 without a token. The deployed API is still version `0.1.0`; `/ready` is 404 and the new resume-status/experience-edit operations are absent. That is expected for the unreleased baseline, not proof that the fixes are deployed.
-- Neon session and JWKS endpoints return 200 and allow the production frontend origin. Signing keys use EdDSA. OpenID discovery returns 404, so it cannot establish the actual JWT issuer/audience.
-- Reset-request, reset-password, email-sign-in, signup and social-sign-in routes reject missing fields with 400 rather than 404. These validation requests create no identities and send no emails.
-- A real Google OAuth initiation succeeds: Neon responds with a managed handoff URL, which redirects to `accounts.google.com` with a client ID, state and Neon callback. The check stops before entering a Google account. Successful Google login and the frontend callback are still unverified.
+## Verification completed
 
-Browser traffic passes through the cloud environment's proxy. Chromium was configured with the public-key pins of the environment's installed proxy CAs after its default trust store rejected that chain. This is a route/layout check, not an independent production-origin certificate audit. No account credentials were entered into that browser.
+- Local regression suite: **68 backend/PostgreSQL cases + 17 built-frontend Chromium workflows**, with correctness lint, zero-warning frontend lint and TypeScript/build. Previous release CI also verifies clean locked installation, a nonroot Docker image and dependency advisories; the latest revision's checks are attached to PR #3.
+- A dedicated Neon test identity was registered. Real email/password SDK sign-in, JWT session creation, profile access, experience create/edit/delete, reload, provider sign-out and subsequent rejection of the remote session pass in Chromium against an isolated migrated database. This browser harness serves the release assets under the production origin and forwards API requests to the isolated backend; auth requests use the real provider without fixture replies. It is not a claim that those assets/backend were already promoted publicly.
+- The observed JWT issuer and audience are both the managed auth hostname origin, **without** `/neondb/auth`. Real signature, expiry, issuer and audience checks pass. The SDK replaces the opaque session token with the signed `set-auth-jwt` response header; raw session JSON alone is not the backend credential.
+- A PostgreSQL custom dump of the application's **public schema** was taken through Neon's TLS WebSocket transport. It was restored to an isolated PostgreSQL 17 instance with all table counts matching: 4 users, 4 profiles, 112 skills, 6 experiences, 86 jobs and 78 matches. Alembic revision `0001_reliability` upgrades that copy without deleting data. An AES256-encrypted copy passes a decryption/checksum round trip. Managed auth data is outside this migration and is not replaced by that application-schema backup.
+- Vercel's actual project settings are corrected to Node 24, `npm ci`, `npm run build`, root `frontend`, output `dist`.
+- Firecrawl account access succeeds. Its initial credit report showed 1,484 remaining credits. A real WeWorkRemotely scrape exposed the live heading change from `h4` to `h3`; the class-based selector now accepts both and is covered by a regression case. A fresh live scrape produces usable canonical listings.
+- Public production routes/guards, auth session/JWKS and Google OAuth initiation were exercised. Google initiation reaches the configured provider handoff; successful Google account login and callback still require an interactive test identity.
 
-## Additional release fixes
+The cloud browser uses public-key pins of the environment's installed proxy CAs. This is not an independent origin-certificate audit. Dedicated account credentials, cookies/JWTs, database backups and host bindings are held in restricted local release storage, not in source control, public evidence or PR descriptions.
 
-- The animated wireframe preserves projected icosahedron geometry using Canvas2D. The built decoration chunk is **2.7 KB**, compared with approximately **856 KB** for the previous WebGL chunk. The core and Home chunks remain about 669 KB and 268 KB; their warnings are not suppressed and real-device performance still needs measurement.
-- Rendering uses one decorative canvas with no hit testing or focus targets. HTML retains all controls/labels. It is disabled for small screens/reduced motion, pauses offscreen and in hidden tabs, draws at most 30 frames/second and caps backing pixels near two million (about 8 MB). SVG could render this geometry, but the batched Canvas path avoids updating many projected edge elements every frame. No WebGL context or rendering framework is needed by the active decoration.
-- Navigation anchors now resolve from other routes and account for the lazily mounted landing page.
-- The Dockerfile uses Python 3.12.14, hash-verified runtime dependencies, explicit runtime/migration source copies and a nonroot user. `.dockerignore` excludes local credentials, uploads, virtual environments and test files. Explicit copy permissions make the runtime readable even when workspace files are owner-only. The image builds, imports at UID 10001, serves health, and passes readiness/auth-guard checks against the migrated local database. The cloud build supplied the approved proxy's DNS/CA configuration; the initial GitHub runner also built and checked the image normally.
-- Node 24, npm install/build commands and the Vercel output directory are explicit. `frontend/.env.production` contains only the existing two public service URLs and can be overridden by host variables. Full staging must override them with isolated staging services.
-- Four additional browser regressions cover the Canvas fallback/reduced motion, navigation from another page, anonymous backend warm-up and cancellation of outstanding status requests. The local checks pass **67 backend cases + 17 browser workflows**, plus lint/build. The production-default build also passes.
+## Release changes
 
-The existing Render service also exceeded a 15-second read budget during a later probe, after previously successful responses. This is an observed latency/intermittency issue, not proof of a particular hosting plan or cause. The client now makes one cancellable, credential-free health warm-up on app mount, allows a bounded 45-second API request, and cancels in-flight status requests on navigation or the three-minute polling deadline. No periodic keepalive, automatic mutation retry or paid-provider request is introduced by the warm-up. Actual host logs, availability and cold-start behavior still require management access. The remaining framework favicon was replaced with the application's existing logo.
+The original 37 failed audit expectations and 27 findings are mapped in [REMEDIATION.md](REMEDIATION.md). The release adds truthful persistent owned tasks, input/resource/admission limits, concurrency/integrity constraints, safe migration preflight, provider deadlines, real task polling, correct account recovery/session behavior, profile editing and preservation of application history.
 
-## Release state and remaining prerequisites
+The wireframe decoration now uses a roughly 2.7 KB Canvas2D chunk instead of the roughly 856 KB active WebGL chunk. It pauses offscreen/in hidden tabs, limits rendering to 30 frames/second, caps backing pixels, and is disabled for small screens/reduced motion. Main/Home bundles still need real-device performance measurement. Navigation anchors, request cancellation, favicon and mobile/dialog behavior are repaired. Unsupported testimonials, candidate counts and delivery-time promises are removed from landing/account pages.
 
-The published release branch is `fix/reliability-release-20261009` and its draft pull request is [PR #3](https://github.com/shivenpatro/IntelliApply/pull/3). The first release commit is `86218eca5488de7b761f68c847bce6caa4dbcebb`. Vercel reports a successful [frontend preview](https://intelli-apply-qhquqetg2-shivenpatros-projects.vercel.app), and the initial [GitHub Actions run](https://github.com/shivenpatro/IntelliApply/actions/runs/37842738555) passes regression, dependency-advisory and Docker checks. Later documentation/diagnostic revisions and preview URLs are recorded in the PR checks. A frontend preview is not a full-stack staging deployment when its API/auth defaults still point at the existing production services.
+Docker uses Python 3.12.14, hash-verified runtime dependencies, explicit readable source/migration copies and a nonroot user. Local credentials, uploads, virtual environments and tests are excluded. Public frontend URL defaults are reviewed; full staging must supply isolated destinations explicitly.
 
-The cloud proxy denies the new preview hostname (CONNECT 403), including a request with elevated shell permissions. This is a network policy response, not a Vercel outage or an automatic approval rejection. The exact hostname and Render management endpoint, plus personal credential requirements, were saved in an environment configuration draft. Saving does not activate/publish that draft; review/save the settings and publish the environment to apply them.
+Render's old `SCRAPER_MAX_JOBS_PER_SOURCE=70` exceeds the release's supported bound. The rollout must set a supported bounded value before startup, configure the observed JWT issuer/audience, explicit HTTPS origins, schema creation off and safe task/provider/database budgets. Health/readiness checks must validate the deployed schema/backend before frontend promotion.
 
-The GitHub Actions runner also reports the preview's actual accessibility and, if publicly served, runs anonymous Chromium route/layout checks without fixture responses or credentials. Its report is also published to the PR checks API and explicitly distinguishes a served app from authentication protection, a network error or a not-yet-ready deployment. This diagnostic does not claim successful account login or a migrated backend.
+## External limitations and remaining acceptance
 
-The production branch has not been updated or merged during this preparation. Do not promote the frontend ahead of the database/backend: the new frontend needs the new task-status contract.
+Google rejects the Gemini key deployed at the beginning of the authenticated follow-up with `API_KEY_INVALID`. It has the expected format and no extra quotes/whitespace. A replacement must be bound server-side and verified before successful PDF/DOCX inference can be claimed. Firecrawl credits do not establish Gemini quotas; actual account RPM/TPM/RPD and billing limits need its account configuration. Never exhaust live quotas to test them.
 
-Available access: authenticated GitHub repository reads/writes and public Vercel/Render/Neon reads. Missing access: Vercel/Render management credentials or callable authenticated connectors, a staging/production database binding for backup/preflight/migration, and a dedicated test identity with inbox access. This session exposes no authenticated computer-use session for those dashboards. GitHub access alone does not reveal Render or Vercel environment secrets.
+Reset-request acceptance alone does not prove email delivery, verification-link completion or changing a password. Inbox-dependent acceptance and completed Google sign-in require the dedicated identity's inbox/interactive access. No password, token or OAuth callback should be pasted into chat.
 
-Once those bindings are available, follow [RELEASE.md](RELEASE.md): verify the actual JWT issuer/audience and host configuration; rehearse backup/restore and the migration; test dedicated auth/email/OAuth and PDF/DOCX inference in staging; migrate/deploy backend; promote frontend; verify deployed revision/readiness and the visitor journey. Inspect actual Gemini/Firecrawl account quotas/credits and database connection/backup settings rather than inferring them from public responses. Do not exhaust a provider quota to test its limit.
+Render's actual plan is free. Slow/cold requests were observed, including four 45-second timeouts followed by a healthy response. The client performs one cancellable credential-free warm-up and uses a bounded 45-second API budget, but this does not guarantee host availability. Scheduled work only runs while an instance is awake; continuous scheduling needs suitable uptime or an explicitly configured external runner. No paid plan was provisioned.
 
-Background task status is durable, but uploaded bytes are not retained and execution is not automatically replayed after a crash. Reliable replay requires an agreed worker/storage setup with secured temporary resume retention and production host configuration; it is not silently enabled by the current release. Interrupted tasks accurately report interruption and require retry/re-upload.
+Task state is durable, but uploaded bytes and execution are not automatically replayed after a crash. Interrupted tasks accurately report interruption and require retry/re-upload. Secured retained uploads and an agreed worker/storage configuration are needed for replay; those services are not silently provisioned.
 
-## Session evidence
+## Rollout and rollback
 
-`/workspace/intelliapply-audit-20261009-release/` contains the baseline served HTML/JavaScript/OpenAPI, anonymous browser screenshots/results, public auth checks, Google initiation metadata, release test/build logs and Docker packaging evidence. OAuth state URLs, passwords and provider/database secrets are not included in the report or repository.
+Follow [RELEASE.md](RELEASE.md): verify the current release/configuration, quiesce writes for the first migration, retain a verified backup, migrate/deploy the backend, check its revision/readiness and owned API contracts, then promote the frontend and test the public visitor/account journey. Do not promote the frontend before its task/schema contract is available.
+
+The migration refuses conflicts without deleting records and refuses destructive downgrade. Roll back application revisions while preserving the additive schema; restoring a backup must account for all subsequent writes. Host configuration changes and actual deployment receipts belong in the release record.
+
+## Evidence
+
+Safe test/build/browser/provider and deployment reports are in `/workspace/intelliapply-audit-20261009-release/`. Restricted account/session, backup/restore and configuration material is in `/workspace/.intelliapply/release-access/` and must not be committed or uploaded to public artifacts. Report counts and outcomes, never customer rows or secret values.

@@ -83,15 +83,8 @@ const UpdatePasswordPage = () => {
 
         <div className="auth-testimonial">
           <p className="auth-testimonial-text">
-            "Quick password reset and back to my job matches in no time."
+            Use a password you do not use for other accounts. After updating it, sign in again with your new password.
           </p>
-          <div className="auth-testimonial-author">
-            <div className="auth-testimonial-avatar">JL</div>
-            <div>
-              <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-primary)' }}>Jessica L.</div>
-              <div style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: "'IBM Plex Mono', monospace", letterSpacing: '0.06em', textTransform: 'uppercase' }}>Data Analyst</div>
-            </div>
-          </div>
         </div>
       </div>
 

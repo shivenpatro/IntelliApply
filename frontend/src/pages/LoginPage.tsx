@@ -68,15 +68,8 @@ const LoginPage = () => {
 
         <div className="auth-testimonial">
           <p className="auth-testimonial-text">
-            "Landed my SDE role at a Series B startup within 3 weeks. IntelliApply surfaced it before it was on LinkedIn."
+            Keep your experience, skills and job preferences together, then track the opportunities you choose to pursue.
           </p>
-          <div className="auth-testimonial-author">
-            <div className="auth-testimonial-avatar">AK</div>
-            <div>
-              <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-primary)' }}>Arjun K.</div>
-              <div style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: "'IBM Plex Mono', monospace", letterSpacing: '0.06em', textTransform: 'uppercase' }}>Software Engineer</div>
-            </div>
-          </div>
         </div>
       </div>
 

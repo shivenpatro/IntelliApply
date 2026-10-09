@@ -506,6 +506,16 @@ def test_hackernews_uses_bounded_fetch_and_rejects_upstream_failure(monkeypatch)
             },
             "success",
         ),
+        (
+            200,
+            {
+                "success": True,
+                "data": {
+                    "html": '<li class="new-listing-container"><a href="https://weworkremotely.com/company/example">Example</a><a href="https://weworkremotely.com/remote-jobs/example-python"><h3 class="new-listing__header__title">Engineer</h3><p class="new-listing__company-name">Example</p></a></li>'
+                },
+            },
+            "success",
+        ),
         (429, {"error": "quota"}, "http"),
         (200, {"success": False, "data": {}}, "layout"),
     ],

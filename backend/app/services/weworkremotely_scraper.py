@@ -42,7 +42,7 @@ async def scrape_weworkremotely_jobs(max_jobs_param=15):
         raise RuntimeError("WWR listing layout is unavailable or has changed.")
     jobs = []
     for element in elements:
-        title = element.select_one("h4.new-listing__header__title")
+        title = element.select_one(".new-listing__header__title")
         company = element.select_one("p.new-listing__company-name")
         link = element.find("a", href=re.compile(r"(/listings/|/remote-jobs/)[^/]+"))
         title = clean_text(title.get_text()) if title else ""
