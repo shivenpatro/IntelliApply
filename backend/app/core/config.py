@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Optional
+from typing import Literal, Optional
 
 from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -26,6 +26,11 @@ class Settings(BaseSettings):
     DB_MAX_OVERFLOW: int = Field(2, ge=0, le=30)
     GEMINI_API_KEY: Optional[str] = None
     GEMINI_MODEL: str = "gemini-3.8-flash"
+    GEMINI_TIMEOUT_SECONDS: int = Field(75, ge=5, le=300)
+    RESUME_FALLBACK_PROVIDER: Literal["none", "groq"] = "none"
+    GROQ_API_KEY: Optional[str] = None
+    GROQ_MODEL: str = "openai/gpt-oss-120b"
+    RESUME_FALLBACK_TIMEOUT_SECONDS: int = Field(30, ge=5, le=120)
     FIRECRAWL_API_KEY: Optional[str] = None
     MAX_UPLOAD_BYTES: int = Field(5 * 1024 * 1024, ge=1024, le=20 * 1024 * 1024)
     TASK_TIMEOUT_SECONDS: int = Field(120, ge=10, le=600)

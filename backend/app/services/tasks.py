@@ -170,8 +170,8 @@ async def run_task(task_id, worker, *args):
                 if error.status_code == 409
                 else (
                     "provider_unavailable"
-                    if error.status_code == 503
-                    else "invalid_document"
+                    if error.status_code in (502, 503)
+                    else "timeout" if error.status_code == 504 else "invalid_document"
                 )
             )
         )

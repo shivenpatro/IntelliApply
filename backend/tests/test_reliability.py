@@ -158,7 +158,7 @@ def test_docx_is_validated_and_extracted(client, identity, monkeypatch):
     buffer = io.BytesIO()
     doc.save(buffer)
 
-    async def extract(data, extension):
+    async def extract(data, extension, task_id=None):
         assert (
             extension == "docx"
             and "Python" in resume_parser._extract_text_from_docx(data)
@@ -181,7 +181,10 @@ def test_docx_is_validated_and_extracted(client, identity, monkeypatch):
         ).json()["status"]
         == "completed"
     )
-    assert client.get("/api/profile", headers=headers).json()["resume_path"] == "resume.docx"
+    assert (
+        client.get("/api/profile", headers=headers).json()["resume_path"]
+        == "resume.docx"
+    )
 
 
 def test_resume_cannot_overwrite_intervening_manual_edit(client, identity, monkeypatch):
@@ -399,7 +402,8 @@ def test_vectorizer_refits_for_changed_corpus_and_handles_small_corpus():
 
 
 @pytest.mark.parametrize(
-    "response_kind", ["valid", "quota", "malformed", "oversized", "invalid_dates"]
+    "response_kind",
+    ["valid", "quota", "deadline", "malformed", "oversized", "invalid_dates"],
 )
 def test_real_genai_client_serializes_bounded_structured_requests(
     monkeypatch, response_kind
@@ -410,10 +414,12 @@ def test_real_genai_client_serializes_bounded_structured_requests(
     actual = genai.Client
     calls = []
     monkeypatch.setattr(settings, "GEMINI_API_KEY", "synthetic-key")
+    monkeypatch.setattr(settings, "RESUME_FALLBACK_PROVIDER", "none")
 
     def respond(request):
         calls.append(request)
         body = json.loads(request.content)
+        assert request.headers["X-Server-Timeout"] == "75"
         assert body["generationConfig"]["maxOutputTokens"] == 4096
         assert body["generationConfig"]["responseMimeType"] == "application/json"
         assert body["generationConfig"]["thinkingConfig"]["thinking_level"] == "LOW"
@@ -432,12 +438,13 @@ def test_real_genai_client_serializes_bounded_structured_requests(
                 "date-time",
             ]
         )
-        if response_kind == "quota":
+        if response_kind in ("quota", "deadline"):
+            status = 429 if response_kind == "quota" else 504
             return httpx.Response(
-                429,
+                status,
                 json={
                     "error": {
-                        "code": 429,
+                        "code": status,
                         "message": "synthetic quota",
                         "status": "RESOURCE_EXHAUSTED",
                     }
@@ -473,7 +480,7 @@ def test_real_genai_client_serializes_bounded_structured_requests(
 
     def client_factory(**kwargs):
         options = kwargs["http_options"]
-        assert options.timeout == 45000 and options.retry_options.attempts == 2
+        assert options.timeout == 75000 and options.retry_options.attempts == 1
         options.httpx_async_client = httpx.AsyncClient(
             transport=httpx.MockTransport(respond)
         )
@@ -484,16 +491,15 @@ def test_real_genai_client_serializes_bounded_structured_requests(
         assert asyncio.run(resume_parser.extract_resume(pdf(), "pdf")).skills == [
             "Python"
         ]
-    elif response_kind == "quota":
+    elif response_kind in ("quota", "deadline"):
         with pytest.raises(HTTPException) as error:
             asyncio.run(resume_parser.extract_resume(pdf(), "pdf"))
-        assert error.value.status_code == 429
+        assert error.value.status_code == (429 if response_kind == "quota" else 504)
     else:
-        from pydantic import ValidationError
-
-        with pytest.raises(ValidationError):
+        with pytest.raises(HTTPException) as error:
             asyncio.run(resume_parser.extract_resume(pdf(), "pdf"))
-    assert 1 <= len(calls) <= 2
+        assert error.value.status_code == 503
+    assert len(calls) == 1
 
 
 def test_hackernews_uses_bounded_fetch_and_rejects_upstream_failure(monkeypatch):
