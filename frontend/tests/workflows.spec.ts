@@ -90,7 +90,7 @@ test('resume stays pending until the server commits and then loads the extracted
     done = ++polls >= 3;
     return route.fulfill({ json: { task_id: 'resume-test', status: done ? 'completed' : 'running', message: done ? 'Resume processed successfully.' : 'Processing resume on the server.' } });
   });
-  await page.route('**/api/profile', route => route.fulfill({ json: { id: user.id, first_name: done ? 'Extracted' : 'Audit', skills: done ? [{ id: 1, name: 'Python' }] : [], experiences: [] } }));
+  await page.route('**/api/profile', route => route.fulfill({ json: { id: user.id, first_name: done ? 'Extracted' : 'Audit', resume_path: done ? 'resume.pdf' : 'previous.pdf', skills: done ? [{ id: 1, name: 'Python' }] : [], experiences: [] } }));
   await page.goto('/profile');
   await expect(page.getByLabel('Resume file')).toHaveAttribute('accept', '.pdf,.docx');
   await page.getByLabel('Resume file').setInputFiles({ name: 'resume.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.7 synthetic provider fixture') });
@@ -101,6 +101,10 @@ test('resume stays pending until the server commits and then loads the extracted
   await expect(page.getByRole('alert').filter({ hasText: 'Resume processed successfully.' })).toBeVisible();
   await expect(page.getByLabel('First Name')).toHaveValue('Extracted');
   await expect(page.getByText('Python', { exact: true })).toBeVisible();
+  await expect(page.getByText('resume.pdf', { exact: true })).toBeVisible();
+  await expect(page.getByText('previous.pdf', { exact: true })).toHaveCount(0);
+  await page.reload();
+  await expect(page.getByText('resume.pdf', { exact: true })).toBeVisible();
 });
 
 test('resume provider failure preserves the displayed profile and never claims success', async ({ page }) => {
@@ -223,6 +227,8 @@ test('desktop decoration uses bounded Canvas2D without loading WebGL', async ({ 
 
 test('navigation method anchor works when starting on a different page', async ({ page }) => {
   await fixtures(page); await page.goto('/login');
+  await expect(page.locator('.auth-brand-panel').getByText('IntelliApply', { exact: true })).toHaveCount(0);
+  await expect(page.locator('nav').getByRole('link', { name: 'IntelliApply', exact: true })).toHaveCount(1);
   await page.getByRole('link', { name: 'Method', exact: true }).click();
   await expect(page).toHaveURL(/\/#features$/);
   await expect(page.locator('#features')).toBeVisible();

@@ -341,7 +341,17 @@ def test_missing_model_is_not_false_success(client, identity, monkeypatch):
     )
 
 
-def test_resume_completion_is_committed_with_task(client, identity, monkeypatch):
+@pytest.mark.parametrize(
+    "filename,expected_name",
+    [
+        ("a.PDF", "a.PDF"),
+        (r"C:\fakepath\Sagnik_CV_Updated.pdf", "Sagnik_CV_Updated.pdf"),
+        ("uploads/latest.pdf", "latest.pdf"),
+    ],
+)
+def test_resume_completion_is_committed_with_task(
+    client, identity, monkeypatch, filename, expected_name
+):
     monkeypatch.setattr(settings, "GEMINI_API_KEY", "synthetic-test-key")
 
     async def extract(*args):
@@ -360,15 +370,21 @@ def test_resume_completion_is_committed_with_task(client, identity, monkeypatch)
 
     monkeypatch.setattr(resume_parser, "extract_resume", extract)
     uid, headers = identity()
+    client.get("/api/profile", headers=headers)
+    with SessionLocal() as db:
+        db.get(Profile, uid).resume_path = "Resume_Archita.pdf"
+        db.commit()
     response = client.post(
-        "/api/profile/resume", headers=headers, files={"file": ("a.PDF", pdf())}
+        "/api/profile/resume", headers=headers, files={"file": (filename, pdf())}
     )
     assert response.status_code == 202
     task = client.get(
         "/api/profile/resume/status/" + response.json()["task_id"], headers=headers
     ).json()
     assert task["status"] == "completed"
+    engine.dispose()
     profile = client.get("/api/profile", headers=headers).json()
+    assert profile["resume_path"] == expected_name
     assert (
         profile["first_name"] == "Test"
         and len(profile["skills"]) == 1
@@ -383,8 +399,11 @@ def test_resume_quota_failure_preserves_data(client, identity, monkeypatch):
         raise HTTPException(429, "Provider quota exhausted. Please retry later.")
 
     monkeypatch.setattr(resume_parser, "extract_resume", extract)
-    _, headers = identity()
+    uid, headers = identity()
     client.put("/api/profile/preferences", headers=headers, json={"first_name": "Keep"})
+    with SessionLocal() as db:
+        db.get(Profile, uid).resume_path = "previous.pdf"
+        db.commit()
     response = client.post(
         "/api/profile/resume", headers=headers, files={"file": ("a.pdf", pdf())}
     )
@@ -393,7 +412,9 @@ def test_resume_quota_failure_preserves_data(client, identity, monkeypatch):
         "/api/profile/resume/status/" + response.json()["task_id"], headers=headers
     ).json()
     assert task["status"] == "failed" and "quota" in task["message"]
-    assert client.get("/api/profile", headers=headers).json()["first_name"] == "Keep"
+    profile = client.get("/api/profile", headers=headers).json()
+    assert profile["first_name"] == "Keep"
+    assert profile["resume_path"] == "previous.pdf"
 
 
 def test_constraints_and_readiness(client, identity):
