@@ -4,12 +4,6 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/auth';
 import { useLoadingState } from '../hooks/useLoadingState';
 
-const IntelliApplyLogo = () => (
-  <svg width="22" height="22" viewBox="0 0 40 40" fill="none" aria-hidden="true">
-    <path d="M20 0L25.3301 14.6699L40 20L25.3301 25.3301L20 40L14.6699 25.3301L0 20L14.6699 14.6699L20 0Z" fill="currentColor"/>
-  </svg>
-);
-
 const LoginPage = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -50,11 +44,6 @@ const LoginPage = () => {
     <div className="auth-page">
       {/* Left: Editorial brand panel */}
       <div className="auth-brand-panel">
-        <Link to="/" className="auth-brand-logo" style={{ color: 'var(--text-primary)', textDecoration: 'none' }}>
-          <span style={{ color: 'var(--accent)' }}><IntelliApplyLogo /></span>
-          <span>IntelliApply</span>
-        </Link>
-
         <div>
           <div className="eyebrow-rule" style={{ marginBottom: 'var(--space-6)' }}>№ AUTH / 001</div>
           <h2 className="auth-brand-headline">

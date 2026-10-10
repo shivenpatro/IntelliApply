@@ -151,7 +151,7 @@ async def extract_resume(data, extension):
         client.close()
 
 
-def persist_resume(extracted, task_id, profile_id):
+def persist_resume(extracted, task_id, profile_id, filename):
     with SessionLocal() as db:
         task = db.query(Task).filter_by(id=task_id).with_for_update().first()
         profile = db.query(Profile).filter_by(id=profile_id).with_for_update().first()
@@ -167,6 +167,9 @@ def persist_resume(extracted, task_id, profile_id):
             raise ValueError("empty name")
         profile.first_name = name[0]
         profile.last_name = name[1] if len(name) > 1 else None
+        # Commit the display filename only with successfully extracted data.
+        # Raw resume files are not retained by this processing pipeline.
+        profile.resume_path = filename
         db.query(Skill).filter_by(profile_id=profile_id).delete()
         skills = {
             value.strip().lower(): value.strip()
@@ -189,7 +192,9 @@ def persist_resume(extracted, task_id, profile_id):
         return len(skills)
 
 
-async def parse_resume(data, extension, profile_id, task_id):
+async def parse_resume(data, extension, profile_id, task_id, filename):
     extracted = await extract_resume(data, extension)
-    count = await asyncio.to_thread(persist_resume, extracted, task_id, profile_id)
+    count = await asyncio.to_thread(
+        persist_resume, extracted, task_id, profile_id, filename
+    )
     return "completed", f"Resume processed successfully. {count} skills extracted."

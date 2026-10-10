@@ -130,6 +130,7 @@ def upload_resume(
         extension,
         current_user.supabase_id,
         task_id,
+        filename,
     )
     return {
         "success": True,

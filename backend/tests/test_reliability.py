@@ -181,6 +181,7 @@ def test_docx_is_validated_and_extracted(client, identity, monkeypatch):
         ).json()["status"]
         == "completed"
     )
+    assert client.get("/api/profile", headers=headers).json()["resume_path"] == "resume.docx"
 
 
 def test_resume_cannot_overwrite_intervening_manual_edit(client, identity, monkeypatch):
