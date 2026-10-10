@@ -15,6 +15,7 @@ from app.db.models import ServiceRun
 from app.services.data_maintenance import delete_old_job_postings
 from app.services.job_matcher import match_jobs_for_all_users
 from app.services.job_scraper import trigger_job_scraping
+from app.services.resume_parser import fallback_configuration
 from app.services.tasks import cleanup_tasks, now
 
 scheduler = AsyncIOScheduler()
@@ -118,6 +119,7 @@ def readiness():
             "status": "ready",
             "capabilities": {
                 "resume_processing": bool(settings.GEMINI_API_KEY),
+                "resume_fallback": bool(fallback_configuration()),
                 "enabled_sources": settings.SCRAPER_SOURCES.split(","),
             },
         }
